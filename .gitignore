@@ -1,0 +1,8 @@
+# Directorios de Node
+node_modules/
+
+# Archivos de entorno
+.env
+
+# Logs de debug
+npm-debug.log
