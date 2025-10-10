@@ -1,0 +1,41 @@
+* { box-sizing: border-box; }
+
+body { margin: 0;
+    font-family: system-ui,
+    Arial, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0; }
+
+header { padding: 16px 20px;
+     border-bottom: 1px solid #1f2937;
+     display:flex;
+     justify-content: space-between;
+     align-items: baseline; }
+
+.tabs { padding: 12px 20px;
+     display: flex;
+      gap: 8px; }
+
+.tab { background: #1f2937;
+     color: #e2e8f0; 
+     border: 1px solid #334155;
+     padding: 8px 12px;
+     border-radius: 6px;
+     cursor: pointer; }
+
+.tab.active { 
+    background: #2563eb; 
+    border-color: #2563eb; }
+
+.canvas { margin: 0 20px 20px;
+     height: 520px;
+      border: 2px dashed #334155; 
+      border-radius: 8px; 
+      display:flex; 
+      align-items:center; 
+      justify-content:center; 
+      color:#94a3b8; 
+      background:#0b1220; }
+
+#status { 
+    color: #94a3b8; }
