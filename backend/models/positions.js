@@ -1,4 +1,3 @@
-// backend/models/positions.js
 const { withTransaction, query } = require('../db');
 
 // Trae posiciones por red y vista (join a devices)

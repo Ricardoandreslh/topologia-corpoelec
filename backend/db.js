@@ -1,4 +1,3 @@
-// backend/db.js
 const mysql = require('mysql2/promise');
 
 let pool;
@@ -54,11 +53,6 @@ async function query(sql, params = []) {
 
 /**
  * Ejecuta una transacción. Recibe una función async con el objeto "conn".
- * Ejemplo:
- *   await withTransaction(async (conn) => {
- *     await conn.execute('INSERT ...');
- *     const [rows] = await conn.execute('SELECT ...');
- *   });
  */
 async function withTransaction(workFn) {
   const conn = await getPool().getConnection();

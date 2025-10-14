@@ -1,4 +1,3 @@
-// backend/server.js
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
@@ -19,7 +18,7 @@ app.use(morgan('dev'));
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
 app.use(express.static(FRONTEND_DIR));
 
-// (Opcional) Servir también carpeta de uploads si la usarás más adelante
+// Servir también carpeta de uploads si la usarás más adelante
 const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
 app.use('/uploads', express.static(UPLOADS_DIR));
 
@@ -42,7 +41,7 @@ app.get('/health', async (_req, res) => {
   }
 });
 
-// Montaje de rutas (si ya existen). Si no, no se rompe el arranque.
+// Montaje de rutas
 try {
   const topologyRoutes = require('./routes/topology');
   app.use('/api', topologyRoutes);
