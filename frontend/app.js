@@ -15,3 +15,21 @@
       s.style.color = '#ef4444';
     }
   })();
+
+  async function loadNetworks() {
+    const ul = document.getElementById('networks');
+    ul.innerHTML = 'Cargando...';
+    try {
+      const res = await fetch('/api/networks');
+      const nets = await res.json();
+      ul.innerHTML = '';
+      nets.forEach(n => {
+        const li = document.createElement('li');
+        li.textContent = `${n.name} (${n.type})`;
+        ul.appendChild(li);
+      });
+    } catch (e) {
+      ul.innerHTML = 'Error cargando redes';
+    }
+  }
+  loadNetworks();
