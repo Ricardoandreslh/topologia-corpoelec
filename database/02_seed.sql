@@ -14,6 +14,6 @@ ON DUPLICATE KEY UPDATE description = VALUES(description);
 
 -- Usuario admin (reemplazar <HASH_BCRYPT> por el valor generado)
 INSERT INTO users (username, email, password_hash, role_id, status)
-VALUES ('admin', 'admin@local', '<$2b$10$oYPqlLKevM9MTn77OfsQf.0z7QFEfERPKZIHsiUJoXl9vX3lROznS>',
+VALUES ('admin', 'admin@local', '$2b$10$xBCl/od4qYezgJ939oUcK.qfW/h2vr.dKZJBXfAuvRxi6rxWc/Rw.',
         (SELECT id FROM roles WHERE name='admin'), 'active')
 ON DUPLICATE KEY UPDATE email = VALUES(email);

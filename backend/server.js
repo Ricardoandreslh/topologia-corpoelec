@@ -14,6 +14,14 @@ app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 app.use(morgan('dev'));
 
+//Rate limiting global opcional en server.js
+const { apiLimiter } = require('./middleware/rateLimiters');
+app.use('/api', apiLimiter);
+
+// Rutas de API (auth primero)
+const authRoutes = require('./routes/auth');
+app.use('/api', authRoutes);
+
 // Servir archivos estáticos del frontend
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
 app.use(express.static(FRONTEND_DIR));

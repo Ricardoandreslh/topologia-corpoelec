@@ -2,29 +2,102 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <title>Topología de Redes Corpoelec</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Topología CORPOELEC</title>
   <link rel="stylesheet" href="./style.css" />
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Google+Sans+Code:ital,wght@0,300..800;1,300..800&display=swap');
-    </style>
+  <meta name="color-scheme" content="light dark" />
+  <script>
+    (function() {
+      try {
+        var ls = localStorage.getItem('theme');
+        var mql = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+        var theme = ls || (mql && mql.matches ? 'dark' : 'light');
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
-  <header>
-    <h1>Topología de Redes Corpoelec</h1>
-    <small id="status">Verificando servidor…</small>
+  <!-- Radios para tabs (CSS-only) -->
+  <input type="radio" name="view" id="tab-wifi" class="visually-hidden" checked />
+  <input type="radio" name="view" id="tab-switches" class="visually-hidden" />
+
+  <header class="app-header">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"><img src="https://i.ibb.co/XfLMNJG2/NTN-Consultores-Corpoelec-logo-2-removebg-preview.png" alt=""></div>
+      <div class="titles">
+        <h1 class="app-title">Topología CORPOELEC</h1>
+        <p class="app-subtitle">Visualizador de redes</p>
+      </div>
+    </div>
+
+    <nav class="controls">
+      <div class="tabs">
+        <label for="tab-wifi" class="tab tab--wifi" title="Ver redes WiFi">Redes WiFi</label>
+        <label for="tab-switches" class="tab tab--switches" title="Ver redes de switches">Switches</label>
+      </div>
+
+      <div class="toolbar">
+        <div class="tool-group">
+          <button class="btn" type="button" disabled title="Próximamente">Zoom -</button>
+          <button class="btn" type="button" disabled title="Próximamente">Zoom +</button>
+        </div>
+        <div class="tool-group">
+          <button class="btn" type="button" disabled title="Próximamente">Centrar</button>
+          <button class="btn" type="button" disabled title="Próximamente">Fondo</button>
+        </div>
+        <div class="tool-group">
+          <input class="search" type="search" placeholder="Buscar dispositivo..." aria-label="Buscar dispositivo" disabled />
+        </div>
+      </div>
+    </nav>
+
+    <div class="session">
+      <!-- Switch de tema -->
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false" aria-label="Cambiar tema">
+        <span class="theme-toggle__icon theme-toggle__icon--sun" aria-hidden="true">☀️</span>
+        <span class="theme-toggle__icon theme-toggle__icon--moon" aria-hidden="true">🌙</span>
+      </button>
+      <span class="user-badge" title="Estado de sesión">Invitado</span>
+    </div>
   </header>
 
-  <main>
-    <div class="tabs">
-      <button class="tab active">Redes WiFi</button>
-      <button class="tab">Redes Switches</button>
+  <main class="app-main">
+    <section class="canvas-frame" aria-label="Lienzo de topología">
+      <div class="canvas-inner">
+        <!-- Capas-->
+        <div class="layer layer--background" aria-hidden="true"></div>
+        <div class="layer layer--links" aria-hidden="true"></div>
+        <div class="layer layer--nodes" aria-hidden="true"></div>
 
-    </div>
-    <div id="canvas" class="canvas"><ul id="networks"></ul></div>
+        <!-- Vistas -->
+        <div class="view view--wifi" role="region" aria-labelledby="label-wifi">
+          <div class="view-placeholder">
+            <h2 id="label-wifi">Vista: Redes WiFi</h2>
+            <p>El recuadro está listo para mostrar equipos, conexiones y fondo.</p>
+          </div>
+        </div>
 
+        <div class="view view--switches" role="region" aria-labelledby="label-switches">
+          <div class="view-placeholder">
+            <h2 id="label-switches">Vista: Redes de Switches</h2>
+            <p>Próximamente: nodos, enlaces y layout.</p>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 
-  <script src="./app.js"></script>
+  <footer class="app-footer">
+    <div class="footer-left">
+      <span class="status-dot status--unknown" aria-hidden="true"></span>
+      <small id="status">Verificando servidor…</small>
+    </div>
+    <div class="footer-right">
+      <small>v0.1 — Semana 2</small>
+    </div>
+  </footer>
+  <script src="./app.js" defer></script>
 </body>
 </html>
