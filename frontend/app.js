@@ -91,3 +91,30 @@
     // Sincroniza el botón al cargar
     syncButton();
   })();
+
+  // frontend/app.js (añade al existente que maneja el tema)
+(function () {
+  // Si estamos en index.html, refuerza la sesión y pinta usuario
+  if (document.querySelector('.canvas-frame')) {
+    Auth.requireAuthOnPage().then(function (ok) {
+      if (!ok) return;
+      var user = Auth.getUser();
+      var badge = document.getElementById('user-badge');
+      if (badge) {
+        if (user && user.username) {
+          badge.textContent = user.username + (user.role ? ' (' + user.role + ')' : '');
+          badge.title = 'Sesión activa';
+        } else {
+          badge.textContent = 'Usuario';
+        }
+      }
+      var logout = document.getElementById('logout-btn');
+      if (logout) {
+        logout.addEventListener('click', function () {
+          Auth.clearAuth();
+          location.replace('./login.html');
+        });
+      }
+    });
+  }
+})();

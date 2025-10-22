@@ -6,6 +6,7 @@
   <title>Topología CORPOELEC</title>
   <link rel="stylesheet" href="./style.css" />
   <meta name="color-scheme" content="light dark" />
+  <link rel="shortcut icon" href="https://i.ibb.co/XfLMNJG2/NTN-Consultores-Corpoelec-logo-2-removebg-preview.png" type="image/x-icon">
   <script>
     (function() {
       try {
@@ -17,6 +18,17 @@
       } catch (e) {}
     })();
   </script>
+  <script>
+    // Guard temprano: si no hay access ni refresh válidos, manda a login
+    (function(){
+      try{
+        function expired(t){ if(!t) return true; var p=JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); var now=Math.floor(Date.now()/1000); return !p.exp || p.exp < now; }
+        var a = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
+        var r = localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken');
+        if (( !a || expired(a) ) && ( !r || expired(r) )) { location.replace('./login.html'); }
+      }catch(e){}
+    })();
+  </script>
 </head>
 <body>
   <!-- Radios para tabs (CSS-only) -->
@@ -25,7 +37,7 @@
 
   <header class="app-header">
     <div class="brand">
-      <div class="logo" aria-hidden="true"><img src="https://i.ibb.co/XfLMNJG2/NTN-Consultores-Corpoelec-logo-2-removebg-preview.png" alt=""></div>
+      <div class="logo" aria-hidden="true"><img src="https://i.ibb.co/XfLMNJG2/NTN-Consultores-Corpoelec-logo-2-removebg-preview.png" alt="Logo Corpoelec"></div>
       <div class="titles">
         <h1 class="app-title">Topología CORPOELEC</h1>
         <p class="app-subtitle">Visualizador de redes</p>
@@ -34,8 +46,8 @@
 
     <nav class="controls">
       <div class="tabs">
-        <label for="tab-wifi" class="tab tab--wifi" title="Ver redes WiFi">Redes WiFi</label>
-        <label for="tab-switches" class="tab tab--switches" title="Ver redes de switches">Switches</label>
+        <label for="tab-wifi" class="tab tab--wifi" title="Ver redes WiFi">Servicio WiFi</label>
+        <label for="tab-switches" class="tab tab--switches" title="Ver redes de switches">Red Corporativa</label>
       </div>
 
       <div class="toolbar">
@@ -54,12 +66,36 @@
     </nav>
 
     <div class="session">
-      <!-- Switch de tema -->
       <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false" aria-label="Cambiar tema">
         <span class="theme-toggle__icon theme-toggle__icon--sun" aria-hidden="true">☀️</span>
         <span class="theme-toggle__icon theme-toggle__icon--moon" aria-hidden="true">🌙</span>
       </button>
-      <span class="user-badge" title="Estado de sesión">Invitado</span>
+      <span id="user-badge" class="user-badge" title="Estado de sesión">Invitado</span>
+      <button id="logout-btn" class="btn" type="button" style="cursor:pointer">Cerrar sesión</button>
+    </div>
+
+    <div class="modal" id="login-modal" aria-hidden="true" role="dialog" aria-labelledby="login-title" aria-modal="true" hidden>
+      <div class="modal-backdrop" data-close="modal"></div>
+      <div class="modal-dialog" role="document">
+        <button class="modal-close" id="login-close" aria-label="Cerrar">×</button>
+        <h2 id="login-title">Iniciar sesión</h2>
+        <form id="login-form" autocomplete="on">
+          <label for="login-username">Usuario</label>
+          <input name="username" id="login-username" required autocomplete="username" inputmode="text" />
+          <label for="login-password">Contraseña</label>
+          <input name="password" id="login-password" type="password" required autocomplete="current-password" />
+          <label class="checkbox">
+            <input type="checkbox" id="remember" />
+            Recordarme en este equipo
+          </label>
+          <div class="form-actions">
+            <button type="submit" class="btn btn--primary" id="login-submit">Entrar</button>
+            <button type="button" class="btn" id="login-cancel">Cancelar</button>
+          </div>
+          <p class="form-hint">Usa tus credenciales configuradas en el backend.</p>
+          <p class="form-error" id="login-error" role="alert" hidden></p>
+        </form>
+      </div>
     </div>
   </header>
 
@@ -74,14 +110,14 @@
         <!-- Vistas -->
         <div class="view view--wifi" role="region" aria-labelledby="label-wifi">
           <div class="view-placeholder">
-            <h2 id="label-wifi">Vista: Redes WiFi</h2>
+            <h2 id="label-wifi">Vista: Servicio WiFi</h2>
             <p>El recuadro está listo para mostrar equipos, conexiones y fondo.</p>
           </div>
         </div>
 
         <div class="view view--switches" role="region" aria-labelledby="label-switches">
           <div class="view-placeholder">
-            <h2 id="label-switches">Vista: Redes de Switches</h2>
+            <h2 id="label-switches">Vista: Red Corporativa</h2>
             <p>Próximamente: nodos, enlaces y layout.</p>
           </div>
         </div>
@@ -91,13 +127,14 @@
 
   <footer class="app-footer">
     <div class="footer-left">
-      <span class="status-dot status--unknown" aria-hidden="true"></span>
+      <span class="status-dot status--ok" aria-hidden="true"></span>
       <small id="status">Verificando servidor…</small>
     </div>
     <div class="footer-right">
       <small>v0.1 — Semana 2</small>
     </div>
   </footer>
+  <script src="./auth.js"></script>
   <script src="./app.js" defer></script>
 </body>
 </html>

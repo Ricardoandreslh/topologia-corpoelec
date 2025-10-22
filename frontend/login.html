@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ingresar — Topología CORPOELEC</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="./style.css" />
+  <meta name="color-scheme" content="light dark" />
+
+  <script>
+    (function(){try{var ls=localStorage.getItem('theme');var m=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)');var t=ls||(m&&m.matches?'dark':'light');document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t;}catch(e){}})();
+  </script>
+</head>
+<body class="login-body">
+  <header class="app-header">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">⚡</div>
+      <div class="titles">
+        <h1 class="app-title">Topología CORPOELEC</h1>
+        <p class="app-subtitle">Autenticación</p>
+      </div>
+    </div>
+    <div class="session">
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false" aria-label="Cambiar tema">
+        <span class="theme-toggle__icon theme-toggle__icon--sun" aria-hidden="true">☀️</span>
+        <span class="theme-toggle__icon theme-toggle__icon--moon" aria-hidden="true">🌙</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="login-main">
+    <section class="login-card" aria-label="Formulario de ingreso">
+      <div class="login-card__head">
+        <h2>Bienvenido</h2>
+        <p>Ingresa con tus credenciales</p>
+      </div>
+      <form id="login-form" class="login-form" novalidate>
+        <div class="form-row">
+          <label for="username">Usuario</label>
+          <input id="username" name="username" type="text" autocomplete="username" required placeholder="tu.usuario" />
+        </div>
+        <div class="form-row">
+          <label for="password">Contraseña</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required placeholder="••••••••" />
+        </div>
+        <div class="form-row form-row--inline">
+          <label class="checkbox">
+            <input id="remember" type="checkbox" checked />
+            <span>Recordar sesión</span>
+          </label>
+          <a class="muted-link" href="#" tabindex="-1" aria-disabled="true">¿Olvidaste tu clave?</a>
+        </div>
+        <button id="login-btn" class="btn btn--primary" type="submit">Ingresar</button>
+        <p id="login-error" class="form-error" role="alert" hidden></p>
+      </form>
+      <div class="login-card__foot">
+        <small>Acceso restringido. Si no tienes usuario, contacta al administrador.</small>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <div class="footer-left"><span class="status-dot status--unknown"></span><span class="status-text">Listo para iniciar sesión</span></div>
+    <div class="footer-right"><small>v0.1 — Semana 2</small></div>
+  </footer>
+
+  <script src="./auth.js"></script>
+  <script src="./app.js" defer></script>
+  <script src="./login.js" defer></script>
+</body>
+</html>
