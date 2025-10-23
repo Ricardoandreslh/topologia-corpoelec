@@ -3,6 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const dotenv = require('dotenv');
+const devicesRouter = require('./routes/devices.routes');
+const connectionsRouter = require('./routes/connections.routes');
 dotenv.config();
 
 const { initDb, getPool, closeDb } = require('./db');
@@ -29,6 +31,10 @@ app.use(express.static(FRONTEND_DIR));
 // Servir también carpeta de uploads si la usarás más adelante
 const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
 app.use('/uploads', express.static(UPLOADS_DIR));
+
+
+app.use('/api/devices', devicesRouter);
+app.use('/api/connections', connectionsRouter);
 
 // Healthcheck con verificación de DB
 app.get('/health', async (_req, res) => {
