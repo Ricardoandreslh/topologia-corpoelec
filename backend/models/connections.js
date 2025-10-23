@@ -1,4 +1,3 @@
-// backend/models/connections.js
 const { getPool, query } = require('../db');
 
 async function listConnectionsByNetwork(networkId) {

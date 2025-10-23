@@ -1,4 +1,3 @@
-// backend/controllers/connectionsController.js
 const Connections = require('../models/connections');
 const Devices = require('../models/devices');
 
@@ -34,7 +33,7 @@ async function create(req, res) {
       return res.status(400).json({ error: 'network_id, from_device_id y to_device_id son requeridos' });
     }
 
-    // Validar existencia y pertenencia a la red
+    // Validar existencia
     const fromDev = await Devices.getDeviceById(body.from_device_id);
     const toDev = await Devices.getDeviceById(body.to_device_id);
     if (!fromDev || !toDev) return res.status(400).json({ error: 'Dispositivo origen o destino no encontrado' });
@@ -64,7 +63,6 @@ async function update(req, res) {
     const body = req.body || {};
     if (!id) return res.status(400).json({ error: 'id requerido' });
 
-    // No permitimos cambiar network_id por simplicidad
     const allowed = ['from_device_id', 'to_device_id', 'link_type', 'status'];
     const fields = {};
     for (const k of allowed) {
@@ -76,7 +74,7 @@ async function update(req, res) {
     const conn = await Connections.getConnectionById(id);
     if (!conn) return res.status(404).json({ error: 'No encontrado' });
 
-    // Si cambiaron from/to, validar que existan y pertenezcan a la misma network del registro
+
     if (fields.from_device_id || fields.to_device_id) {
       const fromId = fields.from_device_id || conn.from_device_id;
       const toId = fields.to_device_id || conn.to_device_id;

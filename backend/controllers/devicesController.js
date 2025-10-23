@@ -1,4 +1,3 @@
-// backend/controllers/devicesController.js
 const Devices = require('../models/devices');
 
 function serializeMeta(v) {
@@ -9,7 +8,6 @@ function serializeMeta(v) {
 
 async function list(req, res) {
   try {
-    // Requerimos network_id por query para ser explícitos
     const networkId = req.query.network_id;
     if (!networkId) return res.status(400).json({ error: 'network_id requerido' });
 

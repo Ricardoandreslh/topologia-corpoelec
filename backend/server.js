@@ -5,6 +5,7 @@ const morgan = require('morgan');
 const dotenv = require('dotenv');
 const devicesRouter = require('./routes/devices.routes');
 const connectionsRouter = require('./routes/connections.routes');
+const networksRouter = require('./routes/networks.routes');
 dotenv.config();
 
 const { initDb, getPool, closeDb } = require('./db');
@@ -32,6 +33,7 @@ app.use(express.static(FRONTEND_DIR));
 const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
 app.use('/uploads', express.static(UPLOADS_DIR));
 
+app.use('/api/networks', networksRouter);
 
 app.use('/api/devices', devicesRouter);
 app.use('/api/connections', connectionsRouter);
