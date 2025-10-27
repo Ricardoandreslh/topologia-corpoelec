@@ -50,19 +50,19 @@
       <label for="tab-switches" class="tab tab--switches" title="Ver redes de switches">Red Corporativa</label>
     </div>
 
-      <div class="toolbar">
-        <div class="tool-group">
-          <button class="btn" type="button" disabled title="Próximamente">Zoom -</button>
-          <button class="btn" type="button" disabled title="Próximamente">Zoom +</button>
-        </div>
-        <div class="tool-group">
-          <button class="btn" type="button" disabled title="Próximamente">Centrar</button>
-          <button class="btn" type="button" disabled title="Próximamente">Fondo</button>
-        </div>
-        <div class="tool-group">
-          <input class="search" type="search" placeholder="Buscar dispositivo..." aria-label="Buscar dispositivo" disabled />
-        </div>
+    <div class="toolbar">
+      <div class="tool-group">
+        <button class="btn" type="button" id="zoom-out" title="Alejar">Zoom -</button>
+        <button class="btn" type="button" id="zoom-in" title="Acercar">Zoom +</button>
       </div>
+      <div class="tool-group">
+        <button class="btn" type="button" id="fit-view" title="Ajustar vista">Centrar</button>
+        <button class="btn" type="button" id="toggle-background" title="Alternar fondo">Fondo</button>
+      </div>
+      <div class="tool-group">
+        <input class="search" type="search" id="device-search" placeholder="Buscar dispositivo..." aria-label="Buscar dispositivo" />
+      </div>
+    </div>
     </nav>
 
     <div class="session">
@@ -101,19 +101,14 @@
 
   <main class="app-main">
     <section class="canvas-frame" aria-label="Lienzo de topología">
-
       <div class="canvas-inner">
-        
         <div class="view view--wifi" id="view-wifi">
-          <div id="canvas-wifi" class="layer layer--nodes view-placeholder"></div>
+          <div id="canvas-wifi" class="layer layer--nodes"></div>
         </div>
-
         <div class="view view--switches" id="view-switches">
-          <div id="canvas-switches" class="layer layer--nodes view-placeholder"></div>
+          <div id="canvas-switches" class="layer layer--nodes"></div>
         </div>
-
       </div>
-
     </section>
   </main>
 
@@ -127,6 +122,7 @@
 
   <script src="./auth.js"></script>
   <script src="./data.js"></script>
+  <script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
   <script src="./canvas.js"></script>
   <script src="./app.js" defer></script>
 </body>

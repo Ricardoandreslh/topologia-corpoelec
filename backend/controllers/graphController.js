@@ -8,8 +8,8 @@ function tryParseMeta(v) {
 }
 
 const TYPE_MAP = {
-  wifi: ['ap', 'wifi', 'router', 'gateway', 'controller', 'repeater'],
-  switches: ['switch', 'core_switch', 'distribution_switch', 'access_switch']
+  wifi: ['ap','wifi','router','gateway','controller','repeater','access_point','ap_wifi','wireless_ap','wifi_ap','ap-bridge'],
+  switches: ['switch','core_switch','distribution_switch','access_switch','layer2_switch','layer3_switch','l2_switch','l3_switch']
 };
 
 function normalizeType(t) {
