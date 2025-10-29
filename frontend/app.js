@@ -22,7 +22,9 @@
       initThemeToggle();         
       bindLogoutButton();       
       bindUIControls(); 
-  
+      bindCRUDButtons();
+      bindModals();
+
       const page = detectPage();
       if (page === 'login') {
         setStatus('Listo para iniciar sesión');
@@ -75,6 +77,203 @@
     }
   }
   
+  function bindCRUDButtons() {
+    const addDeviceBtn = document.getElementById('add-device');
+    const addConnectionBtn = document.getElementById('add-connection');
+    if (addDeviceBtn) addDeviceBtn.addEventListener('click', () => openDeviceModal());
+    if (addConnectionBtn) addConnectionBtn.addEventListener('click', () => openConnectionModal());
+  }
+  
+  function bindModals() {
+    // Dispositivo
+    const deviceForm = document.getElementById('device-form');
+    const deviceModal = document.getElementById('device-modal');
+    const deviceClose = document.getElementById('device-close');
+    const deviceCancel = document.getElementById('device-cancel');
+    if (deviceForm) deviceForm.addEventListener('submit', handleDeviceSubmit);
+    [deviceClose, deviceCancel].forEach(btn => btn?.addEventListener('click', () => closeModal(deviceModal)));
+  
+    // Conexión
+    const connectionForm = document.getElementById('connection-form');
+    const connectionModal = document.getElementById('connection-modal');
+    const connectionClose = document.getElementById('connection-close');
+    const connectionCancel = document.getElementById('connection-cancel');
+    if (connectionForm) connectionForm.addEventListener('submit', handleConnectionSubmit);
+    [connectionClose, connectionCancel].forEach(btn => btn?.addEventListener('click', () => closeModal(connectionModal)));
+  
+    // Confirmación
+    const confirmModal = document.getElementById('confirm-modal');
+    const confirmYes = document.getElementById('confirm-yes');
+    const confirmNo = document.getElementById('confirm-no');
+    confirmYes?.addEventListener('click', handleConfirmYes);
+    confirmNo?.addEventListener('click', () => closeModal(confirmModal));
+  }
+  
+  function openDeviceModal(device = null) {
+    const modal = document.getElementById('device-modal');
+    const form = document.getElementById('device-form');
+    const title = document.getElementById('device-title');
+    const networkId = new URLSearchParams(location.search).get('network_id') || '1';
+    if (device) {
+      console.log('Device data:', device);
+      title.textContent = 'Editar Dispositivo';
+      document.getElementById('device-id').value = device.id;
+      document.getElementById('device-name').value = device.name;  
+      document.getElementById('device-type').value = device.device_type;  
+      document.getElementById('device-ip').value = device.ip_address || ''; 
+      document.getElementById('device-mac').value = device.mac_address || ''; 
+      document.getElementById('device-location').value = device.location || '';
+    } else {
+      title.textContent = 'Agregar Dispositivo';
+      form.reset();
+      document.getElementById('device-id').value = '';
+    }
+    modal.hidden = false;
+    modal.setAttribute('aria-hidden', 'false');
+  }
+  
+  async function openConnectionModal(connection = null) {
+    const modal = document.getElementById('connection-modal');
+    const form = document.getElementById('connection-form');
+    const title = document.getElementById('connection-title');
+    const networkId = new URLSearchParams(location.search).get('network_id') || '1';
+    
+    try {
+      const devices = await API.getDevices(networkId);
+      const fromSelect = document.getElementById('connection-from');
+      const toSelect = document.getElementById('connection-to');
+      fromSelect.innerHTML = '<option value="">Seleccionar dispositivo...</option>';
+      toSelect.innerHTML = '<option value="">Seleccionar dispositivo...</option>';
+      devices.forEach(d => {
+        const opt = `<option value="${d.id}">${d.name} (ID: ${d.id})</option>`;
+        fromSelect.innerHTML += opt;
+        toSelect.innerHTML += opt;
+      });
+    } catch (err) {
+      alert('Error cargando dispositivos: ' + err.message);
+      return;
+    }
+    
+    if (connection) {
+      title.textContent = 'Editar Conexión';
+      document.getElementById('connection-id').value = connection.id;
+      document.getElementById('connection-from').value = connection.from_device_id;  
+      document.getElementById('connection-to').value = connection.to_device_id;  
+      document.getElementById('connection-link-type').value = connection.link_type || '';  
+      document.getElementById('connection-status').value = connection.status || 'unknown';
+    } else {
+      title.textContent = 'Agregar Conexión';
+      form.reset();
+      document.getElementById('connection-id').value = '';
+    }
+    modal.hidden = false;
+    modal.setAttribute('aria-hidden', 'false');
+  }
+  
+  async function handleConnectionSubmit(e) {
+    e.preventDefault();
+    const id = document.getElementById('connection-id').value;
+    const fromId = parseInt(document.getElementById('connection-from').value);
+    const toId = parseInt(document.getElementById('connection-to').value);
+    
+
+    const networkIdStr = new URLSearchParams(location.search).get('network_id') || '1';
+    const networkId = parseInt(networkIdStr);
+    
+    if (isNaN(networkId) || isNaN(fromId) || isNaN(toId)) {
+      alert('Datos inválidos: verifica la red y los dispositivos seleccionados.');
+      return;
+    }
+    if (fromId === toId) {
+      alert('No puedes conectar un dispositivo a sí mismo.');
+      return;
+    }
+    
+    const data = {
+      network_id: networkId, 
+      from_device_id: fromId,
+      to_device_id: toId,
+      link_type: document.getElementById('connection-link-type').value || null,
+      status: document.getElementById('connection-status').value
+    };
+    try {
+      if (id) await API.updateConnection(id, data);
+      else await API.createConnection(data);
+      GRAPH_CACHE.clear();
+      await loadGraphFor(getCurrentView());
+      closeModal(document.getElementById('connection-modal'));
+    } catch (err) {
+      alert('Error: ' + err.message);
+    }
+  }
+  
+  function closeModal(modal) {
+    modal.hidden = true;
+    modal.setAttribute('aria-hidden', 'true');
+  }
+  
+  async function handleDeviceSubmit(e) {
+    e.preventDefault();
+    const id = document.getElementById('device-id').value;
+    
+    
+    const networkIdStr = new URLSearchParams(location.search).get('network_id') || '1';
+    const networkId = parseInt(networkIdStr);
+    
+    if (isNaN(networkId)) {
+      alert('ID de red inválido. Verifica la URL.');
+      return;
+    }
+    
+    const data = {
+      network_id: networkId,  
+      name: document.getElementById('device-name').value,
+      device_type: document.getElementById('device-type').value,
+      ip_address: document.getElementById('device-ip').value || null,
+      mac_address: document.getElementById('device-mac').value || null,
+      location: document.getElementById('device-location').value || null
+    };
+    try {
+      if (id) await API.updateDevice(id, data);
+      else await API.createDevice(data);
+      GRAPH_CACHE.clear();
+      await loadGraphFor(getCurrentView());
+      closeModal(document.getElementById('device-modal'));
+    } catch (err) {
+      alert('Error: ' + err.message);
+    }
+  }
+
+  
+  function openConfirmModal(type, item) {
+    const modal = document.getElementById('confirm-modal');
+    const message = document.getElementById('confirm-message');
+    message.textContent = `¿Eliminar ${type === 'device' ? 'dispositivo' : 'conexión'} ${item.id}?`;
+    modal.dataset.type = type;
+    modal.dataset.id = item.id;
+    modal.hidden = false;
+    modal.setAttribute('aria-hidden', 'false');
+  }
+  
+  async function handleConfirmYes() {
+    const modal = document.getElementById('confirm-modal');
+    const type = modal.dataset.type;
+    const id = modal.dataset.id;
+    try {
+      if (type === 'device') await API.deleteDevice(id);
+      else await API.deleteConnection(id);
+      GRAPH_CACHE.clear();
+      await loadGraphFor(getCurrentView());
+      closeModal(modal);
+    } catch (err) {
+      alert('Error: ' + err.message);
+    }
+  }
+  
+  function getCurrentView() {
+    const tabWifi = document.getElementById('tab-wifi');
+    return tabWifi && tabWifi.checked ? 'wifi' : 'switches';
+  }
   function handleZoomIn() {
     const containerId = getActiveContainerId();
     if (window.Canvas?.zoomIn) {
@@ -251,7 +450,7 @@ async function loadGraphFor(view) {
     if (window.Canvas?.renderGraph) {
       window.Canvas.renderGraph(projected, { 
         containerId: containerId,
-        viewType: view // Pasar el tipo de vista
+        viewType: view
       });
     } else {
       document.dispatchEvent(new CustomEvent('graph:loaded', { detail: { ...projected, _containerId: containerId } }));
@@ -264,6 +463,53 @@ async function loadGraphFor(view) {
     setStatus('Error al cargar grafo: ' + (e?.message || 'desconocido'), true);
   }
 }
+
+
+function showContextMenu(x, y, type, id) {
+  console.log('showContextMenu llamado con:', { x, y, type, id }); 
+  const menu = document.getElementById('context-menu');
+  if (!menu) {
+    console.error('Menú de contexto no encontrado');
+    return;
+  }
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
+  menu.style.display = 'block';
+  menu.dataset.type = type;
+  menu.dataset.id = id;
+
+
+  document.addEventListener('click', hideContextMenu, { once: true });
+}
+function hideContextMenu() {
+  const menu = document.getElementById('context-menu');
+  if (menu) menu.style.display = 'none';
+}
+
+
+document.getElementById('edit-btn').addEventListener('click', async function() {
+  const menu = document.getElementById('context-menu');
+  const type = menu.dataset.type;
+  const id = menu.dataset.id;
+  hideContextMenu();
+  
+  if (type === 'device') {
+
+    try {
+      const device = await API.getDevice(id);  
+      openDeviceModal(device);
+    } catch (err) {
+      alert('Error obteniendo dispositivo: ' + err.message);
+    }
+  } else if (type === 'connection') {
+    try {
+      const connection = await API.getConnection(id);  
+      openConnectionModal(connection);
+    } catch (err) {
+      alert('Error obteniendo conexión: ' + err.message);
+    }
+  }
+});
 
 function isWifiType(t) {
   t = String(t || '').toLowerCase().trim();
@@ -329,6 +575,91 @@ function projectGraphForView(full, view) {
     }
     if (t) t.textContent = text;
   }
+
+  document.addEventListener('node:contextmenu', function(evt) {
+    console.log('Evento node:contextmenu recibido:', evt.detail);
+    const nodeData = evt.detail.node;
+    if (!nodeData || !nodeData.id) {
+      console.error('Datos del nodo inválidos:', nodeData);
+      return;
+    }
+    const rect = document.body.getBoundingClientRect();
+    const position = {
+      x: evt.detail.clientX - rect.left,
+      y: evt.detail.clientY - rect.top
+    };
+    showContextMenu(position.x, position.y, 'device', nodeData.id);
+  });
+  
+  document.addEventListener('edge:contextmenu', function(evt) {
+    console.log('Evento edge:contextmenu recibido:', evt.detail);
+    const edgeData = evt.detail.edge;
+    if (!edgeData || !edgeData.id) {
+      console.error('Datos del edge inválidos:', edgeData);
+      return;
+    }
+    const rect = document.body.getBoundingClientRect();
+    const position = {
+      x: evt.detail.clientX - rect.left,
+      y: evt.detail.clientY - rect.top
+    };
+    showContextMenu(position.x, position.y, 'connection', edgeData.id);
+  });
+  
+
+  document.getElementById('edit-btn').addEventListener('click', async function() {
+    const menu = document.getElementById('context-menu');
+    const type = menu.dataset.type;
+    const id = menu.dataset.id;
+    hideContextMenu();
+    
+    if (type === 'device') {
+      try {
+        const device = await API.getDevice(id);
+        openDeviceModal(device);
+      } catch (err) {
+        alert('Error obteniendo dispositivo: ' + err.message);
+      }
+    } else if (type === 'connection') {
+      try {
+        const connection = await API.getConnection(id);
+        openConnectionModal(connection); 
+      } catch (err) {
+        alert('Error obteniendo conexión: ' + err.message);
+      }
+    }
+  });
+  
+document.getElementById('delete-btn').addEventListener('click', async function() {
+  const menu = document.getElementById('context-menu');
+  const type = menu.dataset.type;
+  const id = menu.dataset.id;
+  console.log('Intentando eliminar:', type, id);  
+  hideContextMenu();
+  
+  if (!type || !id) {
+    alert('Error: Tipo o ID no definidos. Revisa la consola.');
+    return;
+  }
+  
+  if (confirm(`¿Estás seguro de eliminar este ${type === 'device' ? 'dispositivo' : 'conexión'}?`)) {
+    console.log('Confirmado, llamando DELETE');
+    try {
+      if (type === 'device') {
+        await API.deleteDevice(id);
+      } else if (type === 'connection') {
+        await API.deleteConnection(id);
+      }
+      GRAPH_CACHE.clear();
+      await loadGraphFor(getCurrentView());
+      console.log('Eliminación exitosa');
+    } catch (err) {
+      alert('Error eliminando: ' + err.message);
+    }
+  } else {
+    console.log('Eliminación cancelada');
+  }
+});
 
 })();
 

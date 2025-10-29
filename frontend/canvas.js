@@ -294,7 +294,7 @@
   
       cy.on('wheel', (event) => {
       });
-  
+
       cy.on('grab', 'node', function(evt) {
         evt.target.trigger('grabon');
       });
@@ -316,8 +316,28 @@
         const d = ev.target.data();
         console.log('Nodo clickeado:', d);
       });
-  
-      cy.on('dbltap', 'node', ev => {
+
+      cy.on('cxttap', 'node', ev => {
+        ev.originalEvent.preventDefault();
+        document.dispatchEvent(new CustomEvent('node:contextmenu', { 
+          detail: { 
+            node: ev.target.data(), 
+            clientX: ev.originalEvent.clientX, 
+            clientY: ev.originalEvent.clientY 
+          } 
+        }));
+      });
+      
+      cy.on('cxttap', 'edge', ev => {
+        ev.originalEvent.preventDefault();
+        document.dispatchEvent(new CustomEvent('edge:contextmenu', { 
+          detail: { 
+            edge: ev.target.data(), 
+            clientX: ev.originalEvent.clientX, 
+            clientY: ev.originalEvent.clientY 
+          } 
+        }));
+      });      cy.on('dbltap', 'node', ev => {
         cy.animate({
           center: { eles: ev.target },
           duration: 400
@@ -333,7 +353,7 @@
 
   function renderGraph(graph, opts = {}) {
     const containerId = opts.containerId || 'canvas';
-    const viewType = opts.viewType || 'all'; // Nuevo parámetro
+    const viewType = opts.viewType || 'all';
     const cy = ensure(containerId);
     if (!cy) return;
   
@@ -346,13 +366,11 @@
     const layout = layoutFor(elements, viewType);
     const layoutInstance = cy.layout(layout);
     
-    // Ejecutar layout y luego hacer fit
     layoutInstance.run();
     
-    // Asegurar que se hace fit después del layout
     setTimeout(() => {
       cy.fit(cy.elements(), 60);
-      // Ajustar zoom inicial para mejor visibilidad
+
       if (cy.zoom() > 2) cy.zoom(2);
       if (cy.zoom() < 0.5) cy.zoom(0.5);
     }, 100);

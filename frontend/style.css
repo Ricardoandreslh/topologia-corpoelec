@@ -652,7 +652,7 @@ input[type="password"] {
   background: var(--surface-1, #fff);
 }
 
-/* Estilos para controles activos */
+
 .btn:not(:disabled) {
   cursor: pointer;
   transition: background-color 0.2s;
@@ -666,8 +666,34 @@ input[type="password"] {
   cursor: text;
 }
 
-/* Indicador visual de búsqueda activa */
+
 .search:focus {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.context-menu {
+  position: absolute; 
+  background: var(--surface-1); 
+  border: 1px solid var(--border);
+  padding: 5px;
+  box-shadow: var(--shadow);
+  z-index: 10000; 
+  display: none;
+  border-radius: 8px; 
+}
+.context-menu button {
+  display: block;
+  width: 100%;
+  margin: 2px 0;
+  padding: 8px 10px; 
+  border: none;
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s ease;
+}
+.context-menu button:hover {
+  background: var(--surface-3);
 }

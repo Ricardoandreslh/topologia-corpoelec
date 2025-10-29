@@ -60,11 +60,14 @@
         <button class="btn" type="button" id="toggle-background" title="Alternar fondo">Fondo</button>
       </div>
       <div class="tool-group">
+        <button class="btn" type="button" id="add-device" title="Agregar dispositivo">+ Dispositivo</button>
+        <button class="btn" type="button" id="add-connection" title="Agregar conexión">+ Conexión</button>
+      </div>
+      <div class="tool-group">
         <input class="search" type="search" id="device-search" placeholder="Buscar dispositivo..." aria-label="Buscar dispositivo" />
       </div>
     </div>
-    </nav>
-
+  </nav>
     <div class="session">
       <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false" aria-label="Cambiar tema">
         <span class="theme-toggle__icon theme-toggle__icon--sun" aria-hidden="true">☀️</span>
@@ -97,6 +100,83 @@
         </form>
       </div>
     </div>
+
+    <!-- Después del modal de login, agregar modales CRUD -->
+<div class="modal" id="device-modal" aria-hidden="true" role="dialog" aria-labelledby="device-title" aria-modal="true" hidden>
+  <div class="modal-backdrop" data-close="modal"></div>
+  <div class="modal-dialog">
+    <button class="modal-close" id="device-close" aria-label="Cerrar">×</button>
+    <h2 id="device-title">Agregar/Editar Dispositivo</h2>
+    <form id="device-form" autocomplete="off">
+      <input type="hidden" id="device-id" />
+
+      
+      <label for="device-name">Nombre</label>
+      <input name="name" id="device-name" required />
+      <label for="device-type">Tipo</label>
+      <select id="device-type" required>
+        <option value="">Seleccionar...</option>
+        <option value="ap">AP</option>
+        <option value="switch">Switch</option>
+      </select>
+      <label for="device-ip">IP</label>
+      <input name="ip_address" id="device-ip" type="text" />
+      <label for="device-mac">MAC</label>
+      <input name="mac_address" id="device-mac" type="text" />
+      <label for="device-location">Ubicación</label>
+      <input name="location" id="device-location" type="text" />
+      <div class="form-actions">
+        <button type="submit" class="btn btn--primary" id="device-submit">Guardar</button>
+        <button type="button" class="btn" id="device-cancel">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal" id="connection-modal" aria-hidden="true" role="dialog" aria-labelledby="connection-title" aria-modal="true" hidden>
+  <div class="modal-backdrop" data-close="modal"></div>
+  <div class="modal-dialog">
+    <button class="modal-close" id="connection-close" aria-label="Cerrar">×</button>
+    <h2 id="connection-title">Agregar/Editar Conexión</h2>
+    <form id="connection-form" autocomplete="off">
+      <input type="hidden" id="connection-id" />
+
+      <label for="connection-from">Desde (ID)</label>
+      <select name="from_device_id" id="connection-from" required>
+        <option value="">Seleccionar dispositivo...</option>
+      </select>      
+      <label for="connection-to">Hasta (ID)</label>
+      <select name="to_device_id" id="connection-to" required>
+        <option value="">Seleccionar dispositivo...</option>
+      </select>
+
+      <label for="connection-link-type">Tipo de Enlace</label>
+      <input name="link_type" id="connection-link-type" />
+      <label for="connection-status">Estado</label>
+      <select id="connection-status">
+        <option value="unknown">Desconocido</option>
+        <option value="up">Activo</option>
+        <option value="down">Inactivo</option>
+      </select>
+      <div class="form-actions">
+        <button type="submit" class="btn btn--primary" id="connection-submit">Guardar</button>
+        <button type="button" class="btn" id="connection-cancel">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal" id="confirm-modal" aria-hidden="true" role="dialog" aria-labelledby="confirm-title" aria-modal="true" hidden>
+  <div class="modal-backdrop" data-close="modal"></div>
+  <div class="modal-dialog">
+    <h2 id="confirm-title">Confirmar Acción</h2>
+    <p id="confirm-message"></p>
+    <div class="form-actions">
+      <button type="button" class="btn btn--danger" id="confirm-yes">Sí</button>
+      <button type="button" class="btn" id="confirm-no">No</button>
+    </div>
+  </div>
+</div>
   </header>
 
   <main class="app-main">
@@ -125,5 +205,10 @@
   <script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
   <script src="./canvas.js"></script>
   <script src="./app.js" defer></script>
+
+  <div id="context-menu" class="context-menu" hidden>
+    <button id="edit-btn">Editar</button>
+    <button id="delete-btn">Eliminar</button>
+  </div>
 </body>
 </html>
