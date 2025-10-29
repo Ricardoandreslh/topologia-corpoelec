@@ -13,7 +13,7 @@
   }
 
   async function getDevices(networkId) {
-    const res = await Auth.apiFetch(`/networks/${networkId}/devices`);
+    const res = await Auth.apiFetch(`/devices?network_id=${networkId}`);
     if (!res.ok) throw new Error('Error obteniendo dispositivos');
     const json = await res.json();
     return json.data;

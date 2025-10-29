@@ -17,17 +17,36 @@
     try { root.dataset.theme = theme; root.style.colorScheme = theme; } catch (e) {}
   })();
 
+  // ----- setStatus definido antes de cualquier uso -----
+  function setStatus(text, isError) {
+    try {
+      const dot = document.querySelector('.status-dot');
+      const t = document.querySelector('.status-text') || document.querySelector('.status');
+      if (dot) {
+        dot.classList.remove('status--ok', 'status--error', 'status--unknown', 'status--danger');
+        dot.classList.add(isError ? 'status--error' : 'status--ok');
+      }
+      if (t) t.textContent = text;
+    } catch (e) {
+      // no hacer nada si el DOM aún no está listo
+      console.error('setStatus error:', e);
+    }
+  }
+  // Exponer en window para evitar errores si alguna parte intenta acceder globalmente
+  try { window.setStatus = setStatus; } catch (e) {}
+
   document.addEventListener('DOMContentLoaded', async () => {
     try {
-      initThemeToggle();         
-      bindLogoutButton();       
-      bindUIControls(); 
+      initThemeToggle();
+      bindLogoutButton();
+      bindUIControls();
       bindCRUDButtons();
       bindModals();
+      bindContextMenuActions();
 
       const page = detectPage();
       if (page === 'login') {
-        setStatus('Listo para iniciar sesión');
+        if (typeof setStatus === 'function') setStatus('Listo para iniciar sesión');
         return;
       }
   
@@ -39,7 +58,7 @@
       await initViewFromQuerySafely();
     } catch (err) {
       console.error('app init error', err);
-      setStatus('Error inicializando la página', true);
+      if (typeof setStatus === 'function') setStatus('Error inicializando la página', true);
     }
   });
 
@@ -108,7 +127,80 @@
     confirmYes?.addEventListener('click', handleConfirmYes);
     confirmNo?.addEventListener('click', () => closeModal(confirmModal));
   }
-  
+
+  // Un único bindLogoutButton (antes había duplicado)
+  function bindLogoutButton() {
+    const logout = document.getElementById('logout-btn');
+    if (!logout) return;
+    logout.addEventListener('click', () => {
+      GRAPH_CACHE.clear();
+      Auth.clearAuth();
+      location.replace('./login.html');
+    });
+  }
+
+  function bindContextMenuActions() {
+    // Añadimos listeners de editar/eliminar una sola vez y con guards
+    const editBtn = document.getElementById('edit-btn');
+    const deleteBtn = document.getElementById('delete-btn');
+
+    if (editBtn) {
+      editBtn.addEventListener('click', async function() {
+        const menu = document.getElementById('context-menu');
+        const type = menu?.dataset?.type;
+        const id = menu?.dataset?.id;
+        hideContextMenu();
+        if (!type || !id) {
+          alert('Tipo o ID no definidos en el menú de contexto');
+          return;
+        }
+
+        if (type === 'device') {
+          try {
+            const device = await API.getDevice(id);  
+            openDeviceModal(device);
+          } catch (err) {
+            alert('Error obteniendo dispositivo: ' + err.message);
+          }
+        } else if (type === 'connection') {
+          try {
+            const connection = await API.getConnection(id);  
+            openConnectionModal(connection);
+          } catch (err) {
+            alert('Error obteniendo conexión: ' + err.message);
+          }
+        }
+      });
+    }
+
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', async function() {
+        const menu = document.getElementById('context-menu');
+        const type = menu?.dataset?.type;
+        const id = menu?.dataset?.id;
+        hideContextMenu();
+        if (!type || !id) {
+          alert('Error: Tipo o ID no definidos. Revisa la consola.');
+          return;
+        }
+      
+        if (confirm(`¿Estás seguro de eliminar este ${type === 'device' ? 'dispositivo' : 'conexión'}?`)) {
+          try {
+            if (type === 'device') {
+              await API.deleteDevice(id);
+            } else if (type === 'connection') {
+              await API.deleteConnection(id);
+            }
+            GRAPH_CACHE.clear();
+            await loadGraphFor(getCurrentView());
+          } catch (err) {
+            alert('Error eliminando: ' + err.message);
+          }
+        }
+      });
+    }
+  }
+
   function openDeviceModal(device = null) {
     const modal = document.getElementById('device-modal');
     const form = document.getElementById('device-form');
@@ -116,7 +208,7 @@
     const networkId = new URLSearchParams(location.search).get('network_id') || '1';
     if (device) {
       console.log('Device data:', device);
-      title.textContent = 'Editar Dispositivo';
+      if (title) title.textContent = 'Editar Dispositivo';
       document.getElementById('device-id').value = device.id;
       document.getElementById('device-name').value = device.name;  
       document.getElementById('device-type').value = device.device_type;  
@@ -124,12 +216,11 @@
       document.getElementById('device-mac').value = device.mac_address || ''; 
       document.getElementById('device-location').value = device.location || '';
     } else {
-      title.textContent = 'Agregar Dispositivo';
-      form.reset();
-      document.getElementById('device-id').value = '';
+      if (title) title.textContent = 'Agregar Dispositivo';
+      if (form) form.reset();
+      const idEl = document.getElementById('device-id'); if (idEl) idEl.value = '';
     }
-    modal.hidden = false;
-    modal.setAttribute('aria-hidden', 'false');
+    if (modal) { modal.hidden = false; modal.setAttribute('aria-hidden', 'false'); }
   }
   
   async function openConnectionModal(connection = null) {
@@ -142,6 +233,7 @@
       const devices = await API.getDevices(networkId);
       const fromSelect = document.getElementById('connection-from');
       const toSelect = document.getElementById('connection-to');
+      if (!fromSelect || !toSelect) throw new Error('Selects de conexión no encontrados en el DOM');
       fromSelect.innerHTML = '<option value="">Seleccionar dispositivo...</option>';
       toSelect.innerHTML = '<option value="">Seleccionar dispositivo...</option>';
       devices.forEach(d => {
@@ -155,28 +247,26 @@
     }
     
     if (connection) {
-      title.textContent = 'Editar Conexión';
+      if (title) title.textContent = 'Editar Conexión';
       document.getElementById('connection-id').value = connection.id;
       document.getElementById('connection-from').value = connection.from_device_id;  
       document.getElementById('connection-to').value = connection.to_device_id;  
       document.getElementById('connection-link-type').value = connection.link_type || '';  
       document.getElementById('connection-status').value = connection.status || 'unknown';
     } else {
-      title.textContent = 'Agregar Conexión';
-      form.reset();
-      document.getElementById('connection-id').value = '';
+      if (title) title.textContent = 'Agregar Conexión';
+      if (form) form.reset();
+      const idEl = document.getElementById('connection-id'); if (idEl) idEl.value = '';
     }
-    modal.hidden = false;
-    modal.setAttribute('aria-hidden', 'false');
+    if (modal) { modal.hidden = false; modal.setAttribute('aria-hidden', 'false'); }
   }
   
   async function handleConnectionSubmit(e) {
     e.preventDefault();
-    const id = document.getElementById('connection-id').value;
-    const fromId = parseInt(document.getElementById('connection-from').value);
-    const toId = parseInt(document.getElementById('connection-to').value);
+    const id = document.getElementById('connection-id')?.value;
+    const fromId = parseInt(document.getElementById('connection-from')?.value);
+    const toId = parseInt(document.getElementById('connection-to')?.value);
     
-
     const networkIdStr = new URLSearchParams(location.search).get('network_id') || '1';
     const networkId = parseInt(networkIdStr);
     
@@ -193,8 +283,8 @@
       network_id: networkId, 
       from_device_id: fromId,
       to_device_id: toId,
-      link_type: document.getElementById('connection-link-type').value || null,
-      status: document.getElementById('connection-status').value
+      link_type: document.getElementById('connection-link-type')?.value || null,
+      status: document.getElementById('connection-status')?.value
     };
     try {
       if (id) await API.updateConnection(id, data);
@@ -208,14 +298,14 @@
   }
   
   function closeModal(modal) {
+    if (!modal) return;
     modal.hidden = true;
     modal.setAttribute('aria-hidden', 'true');
   }
   
   async function handleDeviceSubmit(e) {
     e.preventDefault();
-    const id = document.getElementById('device-id').value;
-    
+    const id = document.getElementById('device-id')?.value;
     
     const networkIdStr = new URLSearchParams(location.search).get('network_id') || '1';
     const networkId = parseInt(networkIdStr);
@@ -227,11 +317,11 @@
     
     const data = {
       network_id: networkId,  
-      name: document.getElementById('device-name').value,
-      device_type: document.getElementById('device-type').value,
-      ip_address: document.getElementById('device-ip').value || null,
-      mac_address: document.getElementById('device-mac').value || null,
-      location: document.getElementById('device-location').value || null
+      name: document.getElementById('device-name')?.value,
+      device_type: document.getElementById('device-type')?.value,
+      ip_address: document.getElementById('device-ip')?.value || null,
+      mac_address: document.getElementById('device-mac')?.value || null,
+      location: document.getElementById('device-location')?.value || null
     };
     try {
       if (id) await API.updateDevice(id, data);
@@ -244,10 +334,10 @@
     }
   }
 
-  
   function openConfirmModal(type, item) {
     const modal = document.getElementById('confirm-modal');
     const message = document.getElementById('confirm-message');
+    if (!modal || !message) return;
     message.textContent = `¿Eliminar ${type === 'device' ? 'dispositivo' : 'conexión'} ${item.id}?`;
     modal.dataset.type = type;
     modal.dataset.id = item.id;
@@ -257,8 +347,8 @@
   
   async function handleConfirmYes() {
     const modal = document.getElementById('confirm-modal');
-    const type = modal.dataset.type;
-    const id = modal.dataset.id;
+    const type = modal?.dataset?.type;
+    const id = modal?.dataset?.id;
     try {
       if (type === 'device') await API.deleteDevice(id);
       else await API.deleteConnection(id);
@@ -354,15 +444,6 @@ function getActiveContainerId() {
     });
   }
 
-  function bindLogoutButton() {
-    const logout = document.getElementById('logout-btn');
-    if (!logout) return;
-    logout.addEventListener('click', () => {
-      Auth.clearAuth();
-      location.replace('./login.html');
-    });
-  }
-
   function populateUserBadge() {
     const badge = document.getElementById('user-badge');
     if (!badge) return;
@@ -419,98 +500,7 @@ async function fetchFullGraph(networkId) {
   return full;
 }
 
-function bindLogoutButton() {
-  const logout = document.getElementById('logout-btn');
-  if (!logout) return;
-  logout.addEventListener('click', () => {
-    GRAPH_CACHE.clear();
-    Auth.clearAuth();
-    location.replace('./login.html');
-  });
-}
-
-async function loadGraphFor(view) {
-  try {
-    const params = new URLSearchParams(location.search);
-    const networkId = params.get('network_id') || '1';
-    const label = view === 'wifi' ? 'WiFi' : (view === 'switches' ? 'Red Corporativa' : 'Todo');
-    setStatus(`Cargando red ${networkId} (${label})…`);
-
-    const full = await fetchFullGraph(networkId);
-
-    const projected = projectGraphForView(full, view);
-
-    const containerId = view === 'switches' ? 'canvas-switches' : 'canvas-wifi';
-    const otherId = containerId === 'canvas-wifi' ? 'canvas-switches' : 'canvas-wifi';
-    if (document.getElementById(otherId)) {
-      if (window.Canvas?.destroy) window.Canvas.destroy(otherId);
-      document.getElementById(otherId).innerHTML = '';
-    }
-
-    if (window.Canvas?.renderGraph) {
-      window.Canvas.renderGraph(projected, { 
-        containerId: containerId,
-        viewType: view
-      });
-    } else {
-      document.dispatchEvent(new CustomEvent('graph:loaded', { detail: { ...projected, _containerId: containerId } }));
-    }
-
-    const counts = projected.counts || { nodes: projected.nodes?.length || 0, edges: projected.edges?.length || 0 };
-    setStatus(`Red ${networkId} cargada (${label}): ${counts.nodes} nodos, ${counts.edges} enlaces`);
-  } catch (e) {
-    console.error(e);
-    setStatus('Error al cargar grafo: ' + (e?.message || 'desconocido'), true);
-  }
-}
-
-
-function showContextMenu(x, y, type, id) {
-  console.log('showContextMenu llamado con:', { x, y, type, id }); 
-  const menu = document.getElementById('context-menu');
-  if (!menu) {
-    console.error('Menú de contexto no encontrado');
-    return;
-  }
-  menu.style.left = `${x}px`;
-  menu.style.top = `${y}px`;
-  menu.style.display = 'block';
-  menu.dataset.type = type;
-  menu.dataset.id = id;
-
-
-  document.addEventListener('click', hideContextMenu, { once: true });
-}
-function hideContextMenu() {
-  const menu = document.getElementById('context-menu');
-  if (menu) menu.style.display = 'none';
-}
-
-
-document.getElementById('edit-btn').addEventListener('click', async function() {
-  const menu = document.getElementById('context-menu');
-  const type = menu.dataset.type;
-  const id = menu.dataset.id;
-  hideContextMenu();
-  
-  if (type === 'device') {
-
-    try {
-      const device = await API.getDevice(id);  
-      openDeviceModal(device);
-    } catch (err) {
-      alert('Error obteniendo dispositivo: ' + err.message);
-    }
-  } else if (type === 'connection') {
-    try {
-      const connection = await API.getConnection(id);  
-      openConnectionModal(connection);
-    } catch (err) {
-      alert('Error obteniendo conexión: ' + err.message);
-    }
-  }
-});
-
+/* ====== projectGraphForView (restaura la función faltante) ====== */
 function isWifiType(t) {
   t = String(t || '').toLowerCase().trim();
   return ['ap','wifi','router','gateway','controller','repeater','access_point','ap_wifi','wireless_ap','wifi_ap','ap-bridge'].includes(t);
@@ -526,6 +516,8 @@ function nodeCategory(type) {
 }
 
 function projectGraphForView(full, view) {
+  if (!full) return { network_id: null, nodes: [], edges: [], counts: { nodes: 0, edges: 0 }, kind: 'all' };
+
   if (view === 'all') {
     const counts = full.counts || {
       nodes: (full.nodes || []).length,
@@ -565,31 +557,79 @@ function projectGraphForView(full, view) {
     counts: { nodes: viewNodes.length, edges: viewEdges.length }
   };
 }
+/* ============================================================= */
 
-  function setStatus(text, isError) {
-    const dot = document.querySelector('.status-dot');
-    const t = document.querySelector('.status-text') || document.querySelector('.status');
-    if (dot) {
-      dot.classList.remove('status--ok', 'status--error', 'status--unknown', 'status--danger');
-      dot.classList.add(isError ? 'status--error' : 'status--ok');
+async function loadGraphFor(view) {
+  try {
+    const params = new URLSearchParams(location.search);
+    const networkId = params.get('network_id') || '1';
+    const label = view === 'wifi' ? 'WiFi' : (view === 'switches' ? 'Red Corporativa' : 'Todo');
+    if (typeof setStatus === 'function') setStatus(`Cargando red ${networkId} (${label})…`);
+
+    const full = await fetchFullGraph(networkId);
+
+    const projected = projectGraphForView(full, view);
+
+    const containerId = view === 'switches' ? 'canvas-switches' : 'canvas-wifi';
+    const otherId = containerId === 'canvas-wifi' ? 'canvas-switches' : 'canvas-wifi';
+    if (document.getElementById(otherId)) {
+      if (window.Canvas?.destroy) window.Canvas.destroy(otherId);
+      document.getElementById(otherId).innerHTML = '';
     }
-    if (t) t.textContent = text;
+
+    if (window.Canvas?.renderGraph) {
+      window.Canvas.renderGraph(projected, { 
+        containerId: containerId,
+        viewType: view
+      });
+    } else {
+      document.dispatchEvent(new CustomEvent('graph:loaded', { detail: { ...projected, _containerId: containerId } }));
+    }
+
+    const counts = projected.counts || { nodes: projected.nodes?.length || 0, edges: projected.edges?.length || 0 };
+    if (typeof setStatus === 'function') setStatus(`Red ${networkId} cargada (${label}): ${counts.nodes} nodos, ${counts.edges} enlaces`);
+  } catch (e) {
+    console.error(e);
+    if (typeof setStatus === 'function') setStatus('Error al cargar grafo: ' + (e?.message || 'desconocido'), true);
   }
+}
 
-  document.addEventListener('node:contextmenu', function(evt) {
-    console.log('Evento node:contextmenu recibido:', evt.detail);
-    const nodeData = evt.detail.node;
-    if (!nodeData || !nodeData.id) {
-      console.error('Datos del nodo inválidos:', nodeData);
-      return;
-    }
-    const rect = document.body.getBoundingClientRect();
-    const position = {
-      x: evt.detail.clientX - rect.left,
-      y: evt.detail.clientY - rect.top
-    };
-    showContextMenu(position.x, position.y, 'device', nodeData.id);
-  });
+
+function showContextMenu(x, y, type, id) {
+  console.log('showContextMenu llamado con:', { x, y, type, id }); 
+  const menu = document.getElementById('context-menu');
+  if (!menu) {
+    console.error('Menú de contexto no encontrado');
+    return;
+  }
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
+  menu.style.display = 'block';
+  menu.dataset.type = type;
+  menu.dataset.id = id;
+
+  document.addEventListener('click', hideContextMenu, { once: true });
+}
+function hideContextMenu() {
+  const menu = document.getElementById('context-menu');
+  if (menu) menu.style.display = 'none';
+}
+
+
+document.addEventListener('node:contextmenu', function(evt) {
+  console.log('Evento node:contextmenu recibido:', evt.detail);
+  const nodeData = evt.detail.node;
+  if (!nodeData || !nodeData.id) {
+    console.error('Datos del nodo inválidos:', nodeData);
+    return;
+  }
+  const rect = document.body.getBoundingClientRect();
+  const position = {
+    x: evt.detail.clientX - rect.left,
+    y: evt.detail.clientY - rect.top
+  };
+  showContextMenu(position.x, position.y, 'device', nodeData.id);
+});
   
   document.addEventListener('edge:contextmenu', function(evt) {
     console.log('Evento edge:contextmenu recibido:', evt.detail);
@@ -606,61 +646,4 @@ function projectGraphForView(full, view) {
     showContextMenu(position.x, position.y, 'connection', edgeData.id);
   });
   
-
-  document.getElementById('edit-btn').addEventListener('click', async function() {
-    const menu = document.getElementById('context-menu');
-    const type = menu.dataset.type;
-    const id = menu.dataset.id;
-    hideContextMenu();
-    
-    if (type === 'device') {
-      try {
-        const device = await API.getDevice(id);
-        openDeviceModal(device);
-      } catch (err) {
-        alert('Error obteniendo dispositivo: ' + err.message);
-      }
-    } else if (type === 'connection') {
-      try {
-        const connection = await API.getConnection(id);
-        openConnectionModal(connection); 
-      } catch (err) {
-        alert('Error obteniendo conexión: ' + err.message);
-      }
-    }
-  });
-  
-document.getElementById('delete-btn').addEventListener('click', async function() {
-  const menu = document.getElementById('context-menu');
-  const type = menu.dataset.type;
-  const id = menu.dataset.id;
-  console.log('Intentando eliminar:', type, id);  
-  hideContextMenu();
-  
-  if (!type || !id) {
-    alert('Error: Tipo o ID no definidos. Revisa la consola.');
-    return;
-  }
-  
-  if (confirm(`¿Estás seguro de eliminar este ${type === 'device' ? 'dispositivo' : 'conexión'}?`)) {
-    console.log('Confirmado, llamando DELETE');
-    try {
-      if (type === 'device') {
-        await API.deleteDevice(id);
-      } else if (type === 'connection') {
-        await API.deleteConnection(id);
-      }
-      GRAPH_CACHE.clear();
-      await loadGraphFor(getCurrentView());
-      console.log('Eliminación exitosa');
-    } catch (err) {
-      alert('Error eliminando: ' + err.message);
-    }
-  } else {
-    console.log('Eliminación cancelada');
-  }
-});
-
 })();
-
-

@@ -2,14 +2,16 @@ const express = require('express');
 const router = express.Router();
 const Connections = require('../controllers/connectionsController');
 const { requireAuth, requirePermission } = require('../middleware/authMiddleware');
+const validate = require('../middleware/validate');
+const { createConnection, updateConnection } = require('../validators/connectionSchemas');
 
-// Lectura → admin y normal
-router.get('/',    requireAuth, requirePermission('connections:read'), Connections.list);
+// Lectura
+router.get('/', requireAuth, requirePermission('connections:read'), Connections.list);
 router.get('/:id', requireAuth, requirePermission('connections:read'), Connections.getById);
 
-// Escritura → solo admin
-router.post('/',      requireAuth, requirePermission('connections:write'), Connections.create);
-router.put('/:id',    requireAuth, requirePermission('connections:write'), Connections.update);
+// Escritura
+router.post('/', requireAuth, requirePermission('connections:write'), validate(createConnection), Connections.create);
+router.put('/:id', requireAuth, requirePermission('connections:write'), validate(updateConnection), Connections.update);
 router.delete('/:id', requireAuth, requirePermission('connections:write'), Connections.remove);
 
 module.exports = router;
