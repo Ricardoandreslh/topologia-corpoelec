@@ -6,6 +6,7 @@ const dotenv = require('dotenv');
 const devicesRouter = require('./routes/devices.routes');
 const connectionsRouter = require('./routes/connections.routes');
 const networksRouter = require('./routes/networks.routes');
+const imagesRouter = require('./routes/images.routes');
 dotenv.config();
 
 const { initDb, getPool, closeDb } = require('./db');
@@ -37,6 +38,7 @@ app.use('/api/networks', networksRouter);
 
 app.use('/api/devices', devicesRouter);
 app.use('/api/connections', connectionsRouter);
+app.use('/api/images', imagesRouter);
 
 // Healthcheck con verificación de DB
 app.get('/health', async (_req, res) => {

@@ -1,4 +1,3 @@
-// backend/middleware/rateLimiters.js (compatible con express-rate-limit v5)
 const rateLimit = require('express-rate-limit');
 
 const RATE_WINDOW_MIN = parseInt(process.env.RATE_WINDOW_MIN || '15', 10);

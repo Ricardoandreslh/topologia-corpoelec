@@ -1,4 +1,3 @@
-// validators/connectionSchemas.js
 const Joi = require('joi');
 
 const createConnection = Joi.object({

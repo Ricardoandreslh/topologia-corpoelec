@@ -60,6 +60,9 @@
         <button class="btn" type="button" id="toggle-background" title="Alternar fondo">Fondo</button>
       </div>
       <div class="tool-group">
+      <button class="btn" type="button" id="export-excel">Exportar a Excel</button>
+    </div>
+      <div class="tool-group">
         <button class="btn" type="button" id="add-device" title="Agregar dispositivo">+ Dispositivo</button>
         <button class="btn" type="button" id="add-connection" title="Agregar conexión">+ Conexión</button>
       </div>
@@ -113,6 +116,12 @@
       
       <label for="device-name">Nombre</label>
       <input name="name" id="device-name" required />
+      <label for="device-image">Imagen (opcional)</label>
+      <input type="file" id="device-image" accept="image/*" />
+      <div id="image-preview" style="margin-top: 10px; display: none;">
+        <img id="preview-img" style="max-width: 100px; max-height: 100px; border: 1px solid #ccc;" alt="Vista previa" />
+        <button type="button" id="remove-image" style="margin-left: 10px;">Quitar</button>
+      </div>
       <label for="device-type">Tipo</label>
       <select id="device-type" required>
         <option value="">Seleccionar...</option>
@@ -205,6 +214,7 @@
   <script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
   <script src="./canvas.js"></script>
   <script src="./app.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <div id="context-menu" class="context-menu" hidden>
     <button id="edit-btn">Editar</button>

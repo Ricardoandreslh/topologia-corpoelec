@@ -17,7 +17,6 @@
     try { root.dataset.theme = theme; root.style.colorScheme = theme; } catch (e) {}
   })();
 
-  // ----- setStatus definido antes de cualquier uso -----
   function setStatus(text, isError) {
     try {
       const dot = document.querySelector('.status-dot');
@@ -28,11 +27,9 @@
       }
       if (t) t.textContent = text;
     } catch (e) {
-      // no hacer nada si el DOM aún no está listo
       console.error('setStatus error:', e);
     }
   }
-  // Exponer en window para evitar errores si alguna parte intenta acceder globalmente
   try { window.setStatus = setStatus; } catch (e) {}
 
   document.addEventListener('DOMContentLoaded', async () => {
@@ -68,7 +65,10 @@
     const fitBtn = document.getElementById('fit-view');
     const backgroundBtn = document.getElementById('toggle-background');
     const searchInput = document.getElementById('device-search');
-  
+    const exportBtn = document.getElementById('export-excel');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', handleExportExcel);
+    }
     if (zoomInBtn) {
       zoomInBtn.addEventListener('click', handleZoomIn);
     }
@@ -96,6 +96,52 @@
     }
   }
   
+  async function handleExportExcel() {
+    try {
+      const networkId = new URLSearchParams(location.search).get('network_id') || '1';
+      const view = getCurrentView(); 
+      const full = await fetchFullGraph(networkId);
+      const projected = projectGraphForView(full, view);
+        const nodesData = (projected.nodes || []).map(n => ({
+        ID: n.id,
+        Nombre: n.label || n.id,
+        Tipo: n.type,
+        Categoría: n.category,
+        IP: n.ip || '',
+        MAC: n.mac || '',
+        Ubicación: n.location || '',
+        Red_ID: n.network_id,
+        Fantasma: n.ghost ? 'Sí' : 'No'
+      }));
+  
+      const edgesData = (projected.edges || []).map(e => ({
+        ID: e.id,
+        Origen: e.source,
+        Destino: e.target,
+        Tipo_Enlace: e.link_type || '',
+        Estado: e.status || '',
+        Cruzado: e.cross ? 'Sí' : 'No',
+        Red_ID: e.network_id
+      }));
+  
+      // Crear workbook
+      const wb = XLSX.utils.book_new();
+      const wsNodes = XLSX.utils.json_to_sheet(nodesData);
+      const wsEdges = XLSX.utils.json_to_sheet(edgesData);
+      XLSX.utils.book_append_sheet(wb, wsNodes, 'Nodos');
+      XLSX.utils.book_append_sheet(wb, wsEdges, 'Enlaces');
+  
+      // Generar archivo y descargar
+      const fileName = `grafo_red_${networkId}_${view}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+  
+      if (typeof setStatus === 'function') setStatus('Archivo Excel exportado: ' + fileName);
+    } catch (err) {
+      console.error('Error exportando a Excel:', err);
+      if (typeof setStatus === 'function') setStatus('Error al exportar: ' + err.message, true);
+    }
+  }
+  
   function bindCRUDButtons() {
     const addDeviceBtn = document.getElementById('add-device');
     const addConnectionBtn = document.getElementById('add-connection');
@@ -120,7 +166,6 @@
     if (connectionForm) connectionForm.addEventListener('submit', handleConnectionSubmit);
     [connectionClose, connectionCancel].forEach(btn => btn?.addEventListener('click', () => closeModal(connectionModal)));
   
-    // Confirmación
     const confirmModal = document.getElementById('confirm-modal');
     const confirmYes = document.getElementById('confirm-yes');
     const confirmNo = document.getElementById('confirm-no');
@@ -128,7 +173,6 @@
     confirmNo?.addEventListener('click', () => closeModal(confirmModal));
   }
 
-  // Un único bindLogoutButton (antes había duplicado)
   function bindLogoutButton() {
     const logout = document.getElementById('logout-btn');
     if (!logout) return;
@@ -140,7 +184,6 @@
   }
 
   function bindContextMenuActions() {
-    // Añadimos listeners de editar/eliminar una sola vez y con guards
     const editBtn = document.getElementById('edit-btn');
     const deleteBtn = document.getElementById('delete-btn');
 
@@ -206,6 +249,30 @@
     const form = document.getElementById('device-form');
     const title = document.getElementById('device-title');
     const networkId = new URLSearchParams(location.search).get('network_id') || '1';
+    const imageInput = document.getElementById('device-image');
+    const previewDiv = document.getElementById('image-preview');
+    const previewImg = document.getElementById('preview-img');
+    const removeBtn = document.getElementById('remove-image');
+    if (device && device.image_id) {
+
+      previewImg.src = `/api/images/${device.image_id}`;
+      previewDiv.style.display = 'block';
+      imageInput.value = ''; 
+    } else {
+      previewDiv.style.display = 'none';
+    }
+    imageInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = () => { previewImg.src = reader.result; previewDiv.style.display = 'block'; };
+        reader.readAsDataURL(file);
+      }
+    });
+    removeBtn.addEventListener('click', () => {
+      imageInput.value = '';
+      previewDiv.style.display = 'none';
+    });
     if (device) {
       console.log('Device data:', device);
       if (title) title.textContent = 'Editar Dispositivo';
@@ -306,13 +373,32 @@
   async function handleDeviceSubmit(e) {
     e.preventDefault();
     const id = document.getElementById('device-id')?.value;
-    
+    const imageInput = document.getElementById('device-image');
+    let imageId = null;
     const networkIdStr = new URLSearchParams(location.search).get('network_id') || '1';
     const networkId = parseInt(networkIdStr);
     
     if (isNaN(networkId)) {
       alert('ID de red inválido. Verifica la URL.');
       return;
+    }
+
+    if (imageInput.files[0]) {
+      const formData = new FormData();
+      formData.append('image', imageInput.files[0]);
+      try {
+        const res = await fetch('/api/images', {
+          method: 'POST',
+          body: formData,
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+        });
+        if (!res.ok) throw new Error('Error subiendo imagen');
+        const imgData = await res.json();
+        imageId = imgData.id;
+      } catch (err) {
+        alert('Error subiendo imagen: ' + err.message);
+        return;
+      }
     }
     
     const data = {
@@ -321,7 +407,9 @@
       device_type: document.getElementById('device-type')?.value,
       ip_address: document.getElementById('device-ip')?.value || null,
       mac_address: document.getElementById('device-mac')?.value || null,
-      location: document.getElementById('device-location')?.value || null
+      location: document.getElementById('device-location')?.value || null,
+      image_id: imageId
+
     };
     try {
       if (id) await API.updateDevice(id, data);

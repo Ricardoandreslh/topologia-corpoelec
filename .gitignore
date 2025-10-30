@@ -6,3 +6,6 @@ node_modules/
 
 # Logs de debug
 npm-debug.log
+
+# Imagenes
+uploads/*

@@ -1,4 +1,3 @@
-// validators/deviceSchemas.js
 const Joi = require('joi');
 
 const createDevice = Joi.object({

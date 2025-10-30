@@ -138,7 +138,8 @@
           ip: n.ip || '',
           mac: n.mac || '',
           network_id: n.network_id,
-          ghost: n.ghost === true ? 'true' : 'false' 
+          ghost: n.ghost === true ? 'true' : 'false' ,
+          image_id: n.image_id || null
         },
         position: p && hasNum(p.x) && hasNum(p.y) ? { x: Number(p.x), y: Number(p.y) } : undefined
       };
@@ -183,21 +184,34 @@
       { selector: 'edge',
         style: {
           'width': 2, 'line-color': '#95a5a6', 'curve-style': 'bezier', 'target-arrow-shape': 'none',
-          'label': 'data(label)', 'font-size': 8, 'text-rotation': 'autorotate', 'color': '#34495e'
+          'label': 'data(label)', 'font-size': 8, 'text-rotation': 'autorotate', 'color': '#34495e',
+          'text-margin-y': -5
         }
-      }, { selector: 'node[ghost = "true"]',
+      },
+      { selector: 'node[image_id]',
+      style: {
+        'background-image': (ele) => `/api/images/${ele.data('image_id')}`,
+        'background-fit': 'cover',
+        'background-clip': 'node',
+        'shape': 'rectangle', 
+        'width': 40, 'height': 40
+      }
+    }, 
+      { selector: 'node[ghost = "true"]',
       style: { 
         'opacity': 0.35,
         'border-style': 'dashed',
         'border-color': '#7f8c8d',
         'background-color': '#95a5a6'
       }
-    }, { selector: 'edge[cross = "true"]',
+    }, 
+    { selector: 'edge[cross = "true"]',
     style: {
       'line-style': 'dashed',
       'opacity': 0.55
     }
-  }, { selector: 'edge:selected', 
+  }, 
+  { selector: 'edge:selected', 
       style: { 
         'line-color': '#3498db', 
         'width': 3 
@@ -260,7 +274,6 @@
       };
     }
     
-    // Layout por defecto
     return {
       name: 'breadthfirst',
       animate: 'end',
@@ -357,7 +370,7 @@
         const node = evt.target;
         const id = node.id();
         const position = node.position();
-        // Enviar solo metadata.pos para mergear
+       
         API.updateDevice(id, { metadata: { pos: { x: position.x, y: position.y } } })
           .then(() => {
             console.log(`Posición guardada para nodo ${id}: (${position.x}, ${position.y})`);

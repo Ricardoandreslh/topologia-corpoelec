@@ -1,6 +1,5 @@
 const { withTransaction, query } = require('../db');
 
-// Trae posiciones por red y vista (join a devices)
 async function listPositionsByNetworkView(networkId, view) {
   return await query(
     'SELECT dp.id, dp.device_id, dp.view, dp.x, dp.y, dp.zoom, dp.pan_x, dp.pan_y, dp.updated_at ' +
@@ -11,13 +10,11 @@ async function listPositionsByNetworkView(networkId, view) {
   );
 }
 
-// Guarda batch de posiciones y opcionalmente zoom/pan
 async function upsertPositionsBatch(payload) {
   const view = payload.view;
   const positions = payload.positions || [];
   const zoom = typeof payload.zoom === 'number' ? payload.zoom : null;
 
-  // pan puede ser undefined; sacamos x e y con fallback seguro
   var panX = null;
   var panY = null;
   if (payload && payload.pan) {

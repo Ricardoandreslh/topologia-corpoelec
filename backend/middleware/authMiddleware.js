@@ -1,4 +1,3 @@
-// backend/middleware/authMiddleware.js
 const { verifyAccess } = require('../utils/jwt');
 
 const ROLES = Object.freeze({
@@ -6,7 +5,6 @@ const ROLES = Object.freeze({
   USER: 'normal'
 });
 
-// Mapa de permisos básicos (ajústalo a tus recursos reales)
 const PERMISSIONS = Object.freeze({
   'devices:read':   [ROLES.ADMIN, ROLES.USER],
   'devices:write':  [ROLES.ADMIN],
@@ -14,7 +12,6 @@ const PERMISSIONS = Object.freeze({
   'connections:read':  [ROLES.ADMIN, ROLES.USER],
   'connections:write': [ROLES.ADMIN],
 
-  // Ejemplos (por si más adelante gestionas usuarios)
   'users:read':    [ROLES.ADMIN],
   'users:write':   [ROLES.ADMIN],
 });
@@ -26,7 +23,6 @@ function getTokenFromHeader(req) {
   return null;
 }
 
-// Normaliza la forma del error
 function jsonError(res, status, message, code) {
   return res.status(status).json({ error: message, code });
 }
@@ -37,7 +33,6 @@ function requireAuth(req, res, next) {
     if (!token) return jsonError(res, 401, 'Token requerido', 'AUTH_REQUIRED');
 
     const payload = verifyAccess(token);
-    // Normaliza campos críticos
     const role = String(payload.role || '').toLowerCase();
     const status = String(payload.status || 'active').toLowerCase();
 
@@ -53,7 +48,6 @@ function requireAuth(req, res, next) {
   }
 }
 
-// Autorización por roles (admin siempre pasa)
 function requireRole(...roles) {
   const allowed = new Set(roles.map(r => String(r).toLowerCase()));
   return (req, res, next) => {
@@ -66,7 +60,6 @@ function requireRole(...roles) {
   };
 }
 
-// Autorización por permisos (RBAC simple). Admin siempre pasa.
 function hasPermission(user, permission) {
   if (!user) return false;
   if (user.role === ROLES.ADMIN) return true;
@@ -79,7 +72,6 @@ function requirePermission(...permissions) {
   return (req, res, next) => {
     if (!req.user) return jsonError(res, 401, 'No autenticado', 'AUTH_REQUIRED');
 
-    // Si cualquiera de los permisos es válido, permitir
     const ok = perms.some(p => hasPermission(req.user, p));
     if (ok) return next();
 
@@ -87,7 +79,6 @@ function requirePermission(...permissions) {
   };
 }
 
-// Patrón útil: permitir si es el propio recurso o si tiene rol permitido (p.ej., admin)
 function requireSelfOrRole(getOwnerIdFromReq, ...roles) {
   const allowed = new Set(roles.map(r => String(r).toLowerCase()));
   return (req, res, next) => {
@@ -100,7 +91,6 @@ function requireSelfOrRole(getOwnerIdFromReq, ...roles) {
       const ownerId = getOwnerIdFromReq(req);
       if (ownerId && String(ownerId) === String(req.user.id)) return next();
     } catch (_e) {
-      // ignorar y caer al deny
     }
     return jsonError(res, 403, 'Acceso denegado', 'FORBIDDEN');
   };
