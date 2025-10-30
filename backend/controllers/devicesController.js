@@ -70,7 +70,23 @@ async function update(req, res) {
     const fields = {};
     for (const k of allowed) {
       if (body[k] !== undefined) {
-        fields[k] = (k === 'metadata') ? serializeMeta(body[k]) : body[k];
+        if (k === 'metadata') {
+          // Obtener metadata actual y mergear
+          const device = await Devices.getDeviceById(id);
+          let currentMeta = {};
+          if (device.metadata) {
+            try {
+              currentMeta = JSON.parse(device.metadata);
+            } catch (e) {
+              console.warn('Error parsing existing metadata:', e);
+            }
+          }
+          // Mergear: si body.metadata tiene pos, actualizarlo; de lo contrario, reemplazar todo
+          const newMeta = { ...currentMeta, ...body[k] };
+          fields[k] = serializeMeta(newMeta);
+        } else {
+          fields[k] = body[k];
+        }
       }
     }
     if (!Object.keys(fields).length) return res.status(400).json({ error: 'Nada para actualizar' });

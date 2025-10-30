@@ -119,7 +119,14 @@
 
   function mapElements(graph) {
     const nodes = (graph.nodes || []).map(n => {
-      const meta = (n.metadata && typeof n.metadata === 'object') ? n.metadata : {};
+      let meta = {};
+      if (n.metadata) {
+        try {
+          meta = typeof n.metadata === 'string' ? JSON.parse(n.metadata) : n.metadata;
+        } catch (e) {
+          console.warn('Error parsing metadata for node', n.id, e);
+        }
+      }
       const p = meta.pos || meta.position || (hasNum(n.x) && hasNum(n.y) ? { x: n.x, y: n.y } : null);
       return {
         group: 'nodes',
@@ -239,7 +246,7 @@
     // Para redes WiFi
     if (viewType === 'wifi') {
       return {
-        name: 'cose-bilkent',
+        name: 'breadthfirst',
         animate: 'end',
         animationDuration: 1200,
         fit: true,
@@ -255,7 +262,7 @@
     
     // Layout por defecto
     return {
-      name: 'cose-bilkent',
+      name: 'breadthfirst',
       animate: 'end',
       animationDuration: 1000,
       fit: true,
@@ -337,11 +344,27 @@
             clientY: ev.originalEvent.clientY 
           } 
         }));
-      });      cy.on('dbltap', 'node', ev => {
+      });    
+
+      cy.on('dbltap', 'node', ev => {
         cy.animate({
           center: { eles: ev.target },
           duration: 400
         });
+      });
+
+      cy.on('dragfree', 'node', function(evt) {
+        const node = evt.target;
+        const id = node.id();
+        const position = node.position();
+        // Enviar solo metadata.pos para mergear
+        API.updateDevice(id, { metadata: { pos: { x: position.x, y: position.y } } })
+          .then(() => {
+            console.log(`Posición guardada para nodo ${id}: (${position.x}, ${position.y})`);
+          })
+          .catch(err => {
+            console.error('Error guardando posición:', err);
+          });
       });
   
       instances.set(containerId, cy);
