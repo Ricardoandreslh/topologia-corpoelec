@@ -246,21 +246,7 @@
     if (hasPreset(elements)) return { name: 'preset', fit: false, padding: 30 };
     
     const nodeCount = elements.nodes ? elements.nodes.length : 0;
-    
-    // Para redes pequeñas
-    if (nodeCount <= 10) {
-      return {
-        name: 'circle',
-        animate: 'end',
-        animationDuration: 800,
-        fit: true,
-        padding: 80,
-        radius: null,
-        startAngle: 0,
-        sweep: 360
-      };
-    }
-    
+
     // Para redes de switches
     if (viewType === 'switches') {
       return {
