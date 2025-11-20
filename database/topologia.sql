@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 14-11-2025 a las 19:16:39
+-- Tiempo de generación: 20-11-2025 a las 13:17:52
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -84,13 +84,13 @@ CREATE TABLE `devices` (
 --
 
 INSERT INTO `devices` (`id`, `network_id`, `name`, `ip_address`, `mac_address`, `device_type`, `location`, `image_id`, `metadata`, `created_at`, `updated_at`, `site_id`) VALUES
-(152, 1, 'SW HUAWEI S230', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'NODO PISO 1 TORRE UNION', NULL, NULL, '2025-11-14 17:39:15', '2025-11-14 17:39:15', 4),
+(152, 1, 'SW HUAWEI S230', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'NODO PISO 1 TORRE UNION', 12, NULL, '2025-11-14 17:39:15', '2025-11-14 18:41:38', 4),
 (153, 1, 'SW 3COM', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'CAUC COMERCIAL PISO 1', NULL, NULL, '2025-11-14 17:40:49', '2025-11-14 17:40:49', 4),
 (155, 1, 'SW D-LINK', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'FAURE PISO 1', NULL, NULL, '2025-11-14 17:42:13', '2025-11-14 17:42:13', 4),
 (156, 1, 'SW CISCO CATALYST', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'ATIT PISO 5', NULL, NULL, '2025-11-14 17:43:15', '2025-11-14 17:43:15', 5),
-(157, 1, 'ROUTER HUAWEI AR 2941', '198.168.1.1', '7c:86:00:8b:3d:23', 'ap', 'NODO PISO 1', NULL, NULL, '2025-11-14 17:44:12', '2025-11-14 17:44:12', 4),
+(157, 1, 'ROUTER HUAWEI AR 2941', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'NODO PISO 1', NULL, NULL, '2025-11-14 17:44:12', '2025-11-14 18:44:50', 4),
 (158, 1, 'ZTE S200', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'NODO PISO 1 TORRE UNION', NULL, NULL, '2025-11-14 17:53:52', '2025-11-14 17:53:52', 4),
-(159, 1, 'MIKROTIK RB5009', '198.168.1.1', '7c:86:00:8b:3d:23', 'ap', 'NODO PISO 1 TORRE UNION', NULL, NULL, '2025-11-14 17:54:32', '2025-11-14 17:54:32', 4),
+(159, 1, 'MIKROTIK RB5009', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'NODO PISO 1 TORRE UNION', NULL, NULL, '2025-11-14 17:54:32', '2025-11-14 18:44:56', 4),
 (162, 1, 'SW ENCORE UREE', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'UREE PISO 1', NULL, NULL, '2025-11-14 18:01:02', '2025-11-14 18:01:02', 4),
 (163, 1, 'BIOMETRICO', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'Planta Baja', NULL, NULL, '2025-11-14 18:04:05', '2025-11-14 18:04:05', 4),
 (164, 1, 'SERVIDOR BIOMETRICO', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'Piso 1', NULL, NULL, '2025-11-14 18:04:30', '2025-11-14 18:04:30', 4);
@@ -142,7 +142,8 @@ INSERT INTO `images` (`id`, `file_name`, `mime_type`, `size_bytes`, `path`, `cre
 (8, 'Tulips.jpg', 'image/jpeg', 620888, 'C:/Users/TelGefferson/topologia-corpoelec/uploads/1762869792637-Tulips.jpg', '2025-11-11 14:03:12'),
 (9, 'Penguins.jpg', 'image/jpeg', 777835, 'C:/Users/TelGefferson/topologia-corpoelec/uploads/1762869807780-Penguins.jpg', '2025-11-11 14:03:27'),
 (10, 'Penguins.jpg', 'image/jpeg', 777835, 'C:/Users/TelGefferson/topologia-corpoelec/uploads/1762869812555-Penguins.jpg', '2025-11-11 14:03:32'),
-(11, 'Koala.jpg', 'image/jpeg', 780831, 'C:/Users/TelGefferson/topologia-corpoelec/uploads/1762869920350-Koala.jpg', '2025-11-11 14:05:20');
+(11, 'Koala.jpg', 'image/jpeg', 780831, 'C:/Users/TelGefferson/topologia-corpoelec/uploads/1762869920350-Koala.jpg', '2025-11-11 14:05:20'),
+(12, 'Chrysanthemum.jpg', 'image/jpeg', 879394, 'C:/Users/TelGefferson/topologia-corpoelec/uploads/1763145698263-Chrysanthemum.jpg', '2025-11-14 18:41:38');
 
 -- --------------------------------------------------------
 
@@ -845,7 +846,7 @@ ALTER TABLE `device_positions`
 -- AUTO_INCREMENT de la tabla `images`
 --
 ALTER TABLE `images`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
 
 --
 -- AUTO_INCREMENT de la tabla `login_attempts`
