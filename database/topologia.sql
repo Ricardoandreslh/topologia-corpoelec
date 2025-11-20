@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 20-11-2025 a las 13:17:52
+-- Tiempo de generación: 20-11-2025 a las 15:08:14
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -36,27 +36,30 @@ CREATE TABLE `connections` (
   `b_port_id` int(11) DEFAULT NULL,
   `link_type` varchar(50) DEFAULT NULL,
   `status` varchar(50) DEFAULT NULL,
+  `vlan` int(11) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `from_id_norm` int(11) GENERATED ALWAYS AS (least(`from_device_id`,`to_device_id`)) STORED,
   `to_id_norm` int(11) GENERATED ALWAYS AS (greatest(`from_device_id`,`to_device_id`)) STORED,
   `a_port_name` varchar(64) DEFAULT NULL,
-  `b_port_name` varchar(64) DEFAULT NULL
+  `b_port_name` varchar(64) DEFAULT NULL,
+  `vlan_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `connections`
 --
 
-INSERT INTO `connections` (`id`, `network_id`, `from_device_id`, `a_port_id`, `to_device_id`, `b_port_id`, `link_type`, `status`, `created_at`, `a_port_name`, `b_port_name`) VALUES
-(247, 1, 152, 138, 156, 194, 'ethernet', 'up', '2025-11-14 17:58:54', 'Gi0/23', 'Gi0/1'),
-(248, 1, 152, 122, 153, 168, 'ethernet', 'up', '2025-11-14 17:59:34', 'Gi0/7', 'Gi0/25'),
-(249, 1, 153, 166, 162, 255, 'ethernet', 'up', '2025-11-14 18:01:28', 'Gi0/23', 'Gi0/13'),
-(250, 1, 153, 165, 155, 185, 'ethernet', 'up', '2025-11-14 18:01:50', 'Gi0/22', 'Fa0/8'),
-(251, 1, 152, 129, 163, 256, 'ethernet', 'up', '2025-11-14 18:04:49', 'Gi0/14', 'Fa0/1'),
-(252, 1, 152, 128, 164, 261, 'ethernet', 'up', '2025-11-14 18:05:09', 'Gi0/13', 'Fa0/1'),
-(253, 1, 152, 116, 158, 230, 'ethernet', 'up', '2025-11-14 18:05:43', 'Gi0/1', 'Gi0/7'),
-(254, 1, 152, 130, 159, 234, 'ethernet', 'up', '2025-11-14 18:06:44', 'Gi0/15', 'Gi0/1'),
-(256, 1, 152, 118, 157, 223, 'ethernet', 'up', '2025-11-14 18:08:19', 'Gi0/3', 'Fa0/4');
+INSERT INTO `connections` (`id`, `network_id`, `from_device_id`, `a_port_id`, `to_device_id`, `b_port_id`, `link_type`, `status`, `vlan`, `created_at`, `a_port_name`, `b_port_name`, `vlan_id`) VALUES
+(247, 1, 152, 138, 156, 194, 'ethernet', 'up', NULL, '2025-11-14 17:58:54', 'Gi0/23', 'Gi0/1', NULL),
+(248, 1, 152, 122, 153, 168, 'ethernet', 'up', NULL, '2025-11-14 17:59:34', 'Gi0/7', 'Gi0/25', NULL),
+(249, 1, 153, 166, 162, 255, 'ethernet', 'up', NULL, '2025-11-14 18:01:28', 'Gi0/23', 'Gi0/13', NULL),
+(250, 1, 153, 165, 155, 185, 'ethernet', 'up', NULL, '2025-11-14 18:01:50', 'Gi0/22', 'Fa0/8', NULL),
+(252, 1, 152, 128, 164, 261, 'ethernet', 'up', NULL, '2025-11-14 18:05:09', 'Gi0/13', 'Fa0/1', NULL),
+(253, 1, 152, 116, 158, 230, 'ethernet', 'up', NULL, '2025-11-14 18:05:43', 'Gi0/1', 'Gi0/7', NULL),
+(254, 1, 152, 130, 159, 234, 'ethernet', 'up', NULL, '2025-11-14 18:06:44', 'Gi0/15', 'Gi0/1', NULL),
+(256, 1, 152, 118, 157, 223, 'ethernet', 'up', NULL, '2025-11-14 18:08:19', 'Gi0/3', 'Fa0/4', NULL),
+(257, 1, 152, 119, 163, 257, 'ethernet', 'up', NULL, '2025-11-20 12:49:18', 'Gi0/4', 'Fa0/2', NULL),
+(265, 1, 155, 178, 162, 243, 'ethernet', 'up', 20, '2025-11-20 14:06:14', 'Fa0/1', 'Gi0/1', NULL);
 
 -- --------------------------------------------------------
 
@@ -710,7 +713,7 @@ CREATE TABLE `view_backgrounds` (
 --
 ALTER TABLE `connections`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `uq_conn_pair` (`network_id`,`from_id_norm`,`to_id_norm`),
+  ADD UNIQUE KEY `uq_conn_ports` (`network_id`,`a_port_id`,`b_port_id`),
   ADD KEY `fk_conn_from` (`from_device_id`),
   ADD KEY `fk_conn_to` (`to_device_id`),
   ADD KEY `idx_conn_network` (`network_id`),
@@ -828,7 +831,7 @@ ALTER TABLE `view_backgrounds`
 -- AUTO_INCREMENT de la tabla `connections`
 --
 ALTER TABLE `connections`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=257;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=266;
 
 --
 -- AUTO_INCREMENT de la tabla `devices`
