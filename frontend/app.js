@@ -738,10 +738,14 @@
       document.getElementById('connection-to').value = connection.to_device_id;  
       document.getElementById('connection-link-type').value = connection.link_type || '';  
       document.getElementById('connection-status').value = connection.status || 'unknown';
+      // VLAN
+      const vlanEl = document.getElementById('connection-vlan');
+      if (vlanEl) vlanEl.value = connection.vlan || '';
     } else {
       if (title) title.textContent = 'Agregar Conexión';
       if (form) form.reset();
       const idEl = document.getElementById('connection-id'); if (idEl) idEl.value = '';
+      const vlanEl = document.getElementById('connection-vlan'); if (vlanEl) vlanEl.value = '';
     }
     if (modal) { modal.hidden = false; modal.setAttribute('aria-hidden', 'false'); }
   }
@@ -764,12 +768,25 @@
       return;
     }
     
+    // VLAN: leer número (opcional)
+    const vlanStr = document.getElementById('connection-vlan')?.value;
+    let vlanVal = null;
+    if (vlanStr !== undefined && vlanStr !== null && vlanStr !== '') {
+      const v = parseInt(vlanStr, 10);
+      if (isNaN(v) || v < 1 || v > 4094) {
+        alert('VLAN inválida. Debe ser un número entre 1 y 4094.');
+        return;
+      }
+      vlanVal = v;
+    }
+  
     const data = {
       network_id: networkId, 
       from_device_id: fromId,
       to_device_id: toId,
       link_type: document.getElementById('connection-link-type')?.value || null,
-      status: document.getElementById('connection-status')?.value
+      status: document.getElementById('connection-status')?.value,
+      vlan: vlanVal
     };
     try {
       if (id) await API.updateConnection(id, data);
@@ -1193,69 +1210,93 @@ document.addEventListener('node:contextmenu', function(evt) {
     showContextMenu(position.x, position.y, 'connection', edgeData.id);
   });
   
-async function openPortSelectionModal(deviceId, portType) {
-  const ports = await API.getPorts(deviceId);
-  const freePorts = ports.filter(p => !p.connected); 
-
-  if (freePorts.length === 0) {
-    alert('No hay puertos libres en este dispositivo.');
-    return;
-  }
-  const modal = document.createElement('div');
-  modal.id = 'port-modal';
-  modal.innerHTML = `
-    <div style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:white; padding:20px; border:1px solid #ccc; z-index:10000;">
-      <h3>Seleccionar Puerto ${portType} para Dispositivo ${deviceId}</h3>
-      <select id="port-select">
-        ${freePorts.map(p => `<option value="${p.id}">${p.name} (${p.kind})</option>`).join('')}
-      </select>
-      <button id="port-ok">OK</button>
-      <button id="port-cancel">Cancelar</button>
-    </div>
-  `;
-  document.body.appendChild(modal);
-  document.getElementById('port-ok').addEventListener('click', async () => {
-    const selectedPortIdStr = document.getElementById('port-select').value;
-    const selectedPort = freePorts.find(p => String(p.id) === String(selectedPortIdStr));
-    if (portType === 'A') {
-      window.selectedPortA = { 
-        deviceId: parseInt(deviceId, 10), 
-        portId: parseInt(selectedPortIdStr, 10),
-        portName: selectedPort?.name || null
-      };
-      setStatus('Puerto origen seleccionado. Selecciona dispositivo destino.', false);
-    } else {
-      const networkId = parseInt(new URLSearchParams(location.search).get('network_id') || '1', 10);
-      const bPortId = parseInt(selectedPortIdStr, 10);
-      const bPortName = selectedPort?.name || null;
-      const data = {
-        network_id: networkId,
-        from_device_id: parseInt(window.selectedPortA.deviceId, 10),
-        to_device_id: parseInt(deviceId, 10),
-        a_port_id: parseInt(window.selectedPortA.portId, 10),
-        b_port_id: bPortId,
-        a_port_name: window.selectedPortA.portName || null,
-        b_port_name: bPortName,
-        link_type: 'ethernet',
-        status: 'up'
-      };
-      try {
-        await API.createConnection(data);
-        GRAPH_CACHE.clear();
-        await loadGraphFor(getCurrentView(), getCurrentSiteId());
-        window.connectMode = false;
-        window.selectedPortA = null;
-        setStatus('Conexión creada.', false);
-      } catch (err) {
-        alert('Error creando conexión: ' + err.message);
-      }
+  async function openPortSelectionModal(deviceId, portType) {
+    const ports = await API.getPorts(deviceId);
+    const freePorts = ports.filter(p => !p.connected); 
+  
+    if (freePorts.length === 0) {
+      alert('No hay puertos libres en este dispositivo.');
+      return;
     }
-    document.body.removeChild(modal);
-  });
-  document.getElementById('port-cancel').addEventListener('click', () => {
-    document.body.removeChild(modal);
-  });
-}
+    const isB = portType === 'B';
+    const vlanInputHtml = isB ? `
+        <div style="margin-top:10px;">
+          <label for="port-vlan">VLAN (opcional, 1-4094)</label>
+          <input id="port-vlan" type="number" min="1" max="4094" placeholder="Ej: 100" />
+        </div>` : '';
+  
+    const modal = document.createElement('div');
+    modal.id = 'port-modal';
+    modal.innerHTML = `
+      <div style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:white; padding:20px; border:1px solid #ccc; z-index:10000;">
+        <h3>Seleccionar Puerto ${portType} para Dispositivo ${deviceId}</h3>
+        <select id="port-select">
+          ${freePorts.map(p => `<option value="${p.id}">${p.name} (${p.kind})</option>`).join('')}
+        </select>
+        ${vlanInputHtml}
+        <div style="margin-top:12px; text-align:right;">
+          <button id="port-ok" class="btn btn--primary">OK</button>
+          <button id="port-cancel" class="btn">Cancelar</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    document.getElementById('port-ok').addEventListener('click', async () => {
+      const selectedPortIdStr = document.getElementById('port-select').value;
+      const selectedPort = freePorts.find(p => String(p.id) === String(selectedPortIdStr));
+      if (portType === 'A') {
+        window.selectedPortA = { 
+          deviceId: parseInt(deviceId, 10), 
+          portId: parseInt(selectedPortIdStr, 10),
+          portName: selectedPort?.name || null
+        };
+        setStatus('Puerto origen seleccionado. Selecciona dispositivo destino.', false);
+      } else {
+        const networkId = parseInt(new URLSearchParams(location.search).get('network_id') || '1', 10);
+        const bPortId = parseInt(selectedPortIdStr, 10);
+        const bPortName = selectedPort?.name || null;
+  
+        // VLAN (opcional)
+        let vlanVal = null;
+        const vlanEl = document.getElementById('port-vlan');
+        if (vlanEl && vlanEl.value !== '') {
+          const v = parseInt(vlanEl.value, 10);
+          if (isNaN(v) || v < 1 || v > 4094) {
+            alert('VLAN inválida. Debe ser un número entre 1 y 4094.');
+            return;
+          }
+          vlanVal = v;
+        }
+  
+        const data = {
+          network_id: networkId,
+          from_device_id: parseInt(window.selectedPortA.deviceId, 10),
+          to_device_id: parseInt(deviceId, 10),
+          a_port_id: parseInt(window.selectedPortA.portId, 10),
+          b_port_id: bPortId,
+          a_port_name: window.selectedPortA.portName || null,
+          b_port_name: bPortName,
+          link_type: 'ethernet',
+          status: 'up',
+          vlan: vlanVal
+        };
+        try {
+          await API.createConnection(data);
+          GRAPH_CACHE.clear();
+          await loadGraphFor(getCurrentView(), getCurrentSiteId());
+          window.connectMode = false;
+          window.selectedPortA = null;
+          setStatus('Conexión creada.', false);
+        } catch (err) {
+          alert('Error creando conexión: ' + err.message);
+        }
+      }
+      document.body.removeChild(modal);
+    });
+    document.getElementById('port-cancel').addEventListener('click', () => {
+      document.body.removeChild(modal);
+    });
+  }
 
 window.openPortSelectionModal = openPortSelectionModal;
 

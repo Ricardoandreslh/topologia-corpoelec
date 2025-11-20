@@ -172,38 +172,43 @@
     </div>
     
 
-<div class="modal" id="connection-modal" aria-hidden="true" role="dialog" aria-labelledby="connection-title" aria-modal="true" hidden>
-  <div class="modal-backdrop" data-close="modal"></div>
-  <div class="modal-dialog">
-    <button class="modal-close" id="connection-close" aria-label="Cerrar">×</button>
-    <h2 id="connection-title">Agregar/Editar Conexión</h2>
-    <form id="connection-form" autocomplete="off">
-      <input type="hidden" id="connection-id" />
-
-      <label for="connection-from">Desde (ID)</label>
-      <select name="from_device_id" id="connection-from" required>
-        <option value="">Seleccionar dispositivo...</option>
-      </select>      
-      <label for="connection-to">Hasta (ID)</label>
-      <select name="to_device_id" id="connection-to" required>
-        <option value="">Seleccionar dispositivo...</option>
-      </select>
-
-      <label for="connection-link-type">Tipo de Enlace</label>
-      <input name="link_type" id="connection-link-type" />
-      <label for="connection-status">Estado</label>
-      <select id="connection-status">
-        <option value="unknown">Desconocido</option>
-        <option value="up">Activo</option>
-        <option value="down">Inactivo</option>
-      </select>
-      <div class="form-actions">
-        <button type="submit" class="btn btn--primary" id="connection-submit">Guardar</button>
-        <button type="button" class="btn" id="connection-cancel">Cancelar</button>
+    <div class="modal" id="connection-modal" aria-hidden="true" role="dialog" aria-labelledby="connection-title" aria-modal="true" hidden>
+      <div class="modal-backdrop" data-close="modal"></div>
+      <div class="modal-dialog">
+        <button class="modal-close" id="connection-close" aria-label="Cerrar">×</button>
+        <h2 id="connection-title">Agregar/Editar Conexión</h2>
+        <form id="connection-form" autocomplete="off">
+          <input type="hidden" id="connection-id" />
+    
+          <label for="connection-from">Desde (ID)</label>
+          <select name="from_device_id" id="connection-from" required>
+            <option value="">Seleccionar dispositivo...</option>
+          </select>      
+          <label for="connection-to">Hasta (ID)</label>
+          <select name="to_device_id" id="connection-to" required>
+            <option value="">Seleccionar dispositivo...</option>
+          </select>
+    
+          <label for="connection-link-type">Tipo de Enlace</label>
+          <input name="link_type" id="connection-link-type" />
+          <label for="connection-status">Estado</label>
+          <select id="connection-status">
+            <option value="unknown">Desconocido</option>
+            <option value="up">Activo</option>
+            <option value="down">Inactivo</option>
+          </select>
+    
+          <!-- NUEVO: VLAN -->
+          <label for="connection-vlan">VLAN (1–4094)</label>
+          <input type="number" id="connection-vlan" name="vlan" min="1" max="4094" placeholder="Ej: 100" />
+    
+          <div class="form-actions">
+            <button type="submit" class="btn btn--primary" id="connection-submit">Guardar</button>
+            <button type="button" class="btn" id="connection-cancel">Cancelar</button>
+          </div>
+        </form>
       </div>
-    </form>
-  </div>
-</div>
+    </div>
 
 <div class="modal" id="confirm-modal" aria-hidden="true" role="dialog" aria-labelledby="confirm-title" aria-modal="true" hidden>
   <div class="modal-backdrop" data-close="modal"></div>

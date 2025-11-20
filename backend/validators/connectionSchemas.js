@@ -9,7 +9,8 @@ const createConnection = Joi.object({
   a_port_name: Joi.string().max(64).allow(null, '').optional(),
   b_port_name: Joi.string().max(64).allow(null, '').optional(),
   link_type: Joi.string().max(50).allow(null, '').optional(),
-  status: Joi.string().valid('unknown', 'up', 'down').default('unknown')
+  status: Joi.string().valid('unknown', 'up', 'down').default('unknown'),
+  vlan: Joi.number().integer().min(1).max(4094).allow(null).optional()
 }).custom((val, helpers) => {
   if (val.from_device_id === val.to_device_id) {
     return helpers.error('any.custom', {
@@ -29,7 +30,8 @@ const updateConnection = Joi.object({
   a_port_name: Joi.string().max(64).allow(null, '').optional(),
   b_port_name: Joi.string().max(64).allow(null, '').optional(),
   link_type: Joi.string().max(50).allow(null, '').optional(),
-  status: Joi.string().valid('unknown', 'up', 'down').optional()
+  status: Joi.string().valid('unknown', 'up', 'down').optional(),
+  vlan: Joi.number().integer().min(1).max(4094).allow(null).optional()
 }).min(1).custom((val, helpers) => {
   if (val.from_device_id && val.to_device_id && val.from_device_id === val.to_device_id) {
     return helpers.error('any.custom', {
