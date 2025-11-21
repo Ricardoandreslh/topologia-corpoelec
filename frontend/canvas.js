@@ -118,6 +118,34 @@
   }
 
   function mapElements(graph) {
+    // Primero identificar VLANs por nodo (a partir de edges)
+    const nodeVlanMap = {}; // nodeId -> Set(vlan)
+    const vlanGroups = new Set();
+  
+    (graph.edges || []).forEach(e => {
+      if (e.vlan !== undefined && e.vlan !== null) {
+        const v = String(e.vlan);
+        vlanGroups.add(v);
+        nodeVlanMap[e.source] = nodeVlanMap[e.source] || new Set();
+        nodeVlanMap[e.source].add(v);
+        nodeVlanMap[e.target] = nodeVlanMap[e.target] || new Set();
+        nodeVlanMap[e.target].add(v);
+      }
+    });
+  
+    // Crear nodos-compuesto para cada VLAN
+    const vlanNodes = Array.from(vlanGroups).map(v => ({
+      group: 'nodes',
+      data: {
+        id: `vlan-group-${v}`,
+        label: `VLAN ${v}`,
+        type: 'vlan-group',
+        isVlanGroup: 'true',
+        network_id: graph.network_id
+      }
+    }));
+  
+    // Mapear dispositivos (y asignar parent si tienen al menos una VLAN - la primera)
     const nodes = (graph.nodes || []).map(n => {
       let meta = {};
       if (n.metadata) {
@@ -132,8 +160,13 @@
       const derivedSummary = {
         total: portsArr.length,
         used: portsArr.filter(p => p.connected === true).length
-      };    
+      };
       const finalSummary = n.ports_summary || (portsArr.length ? derivedSummary : { total: 0, used: 0 });
+  
+      // elegir primera VLAN si hay varias
+      const vlansForNode = Array.from((nodeVlanMap[n.id] && nodeVlanMap[n.id].size) ? nodeVlanMap[n.id] : []);
+      const parent = vlansForNode.length ? `vlan-group-${vlansForNode[0]}` : undefined;
+  
       return {
         group: 'nodes',
         data: {
@@ -150,25 +183,31 @@
           site_path: n.site_path || null,
           site_id: n.site_id || null,
           ghost: n.ghost ? 'true' : 'false',
-          invisible: n.invisible ? 'true' : 'false'  
+          invisible: n.invisible ? 'true' : 'false',
+          parent: parent // si undefined, no se setea
         },
         position: p && hasNum(p.x) && hasNum(p.y) ? { x: Number(p.x), y: Number(p.y) } : undefined
       };
     });
+  
+    // Mapear edges incluyendo vlan en data y mostrandola en el label
     const edges = (graph.edges || []).map(e => ({
       group: 'edges',
       data: {
         id: String(e.id || (e.source + '->' + e.target)),
         source: String(e.source),
         target: String(e.target),
-        label: e.type || '',
+        label: ((e.type || '') + (e.vlan ? ` • VLAN ${e.vlan}` : '')).trim(),
         link_type: e.type || '',
         status: e.status || '',
         network_id: e.network_id,
-        cross: e.cross === true ? 'true' : 'false'
+        cross: e.cross === true ? 'true' : 'false',
+        vlan: e.vlan !== undefined && e.vlan !== null ? String(e.vlan) : null
       }
     }));
-    return { nodes, edges };
+  
+    // devolver: primero los vlanNodes (padres), luego dispositivos y edges
+    return { nodes: [...vlanNodes, ...nodes], edges };
   }
 
   function baseStyle(theme = 'light') {
@@ -188,6 +227,32 @@
       { selector: 'node[category = "switch"]',
         style: { 'shape': 'round-rectangle', 'background-color': '#2ecc71', 'border-color': '#27ae60' }
       },
+      { selector: 'node[isVlanGroup = "true"]',
+      style: {
+        'shape': 'round-rectangle',
+        'background-color': '#8e44ad',       // color distintivo para grupo VLAN
+        'background-opacity': 0.08,
+        'border-color': '#8e44ad',
+        'border-style': 'dashed',
+        'border-width': 1,
+        'label': 'data(label)',
+        'font-size': 12,
+        'text-valign': 'top',
+        'text-halign': 'center',
+        'text-margin-y': 8,
+        'padding': 12,
+        'width': 'label',
+        'height': 'label'
+      }
+    },
+    // además, para distinguir mejor las edges con VLAN, podrías añadir:
+    { selector: 'edge[label]',
+      style: {
+        'label': 'data(label)',
+        'font-size': 10,
+        'text-margin-y': -8
+      }
+    },
       { selector: 'node[type = "router"]',
         style: { 'shape': 'diamond', 'background-color': '#e67e22', 'border-color': '#d35400' }
       },
@@ -431,12 +496,27 @@
     const ports = d.ports || [];
     let summary = d.ports_summary || { total: ports.length, used: ports.filter(p => p.connected === true).length };
     const free = (summary.total || 0) - (summary.used || 0);
-
+  
+    // Buscar VLANs en los edges conectados a este nodo (extraer valores únicos)
+    const connectedEdges = node.connectedEdges ? node.connectedEdges() : [];
+    const vlans = new Set();
+    if (connectedEdges && connectedEdges.length) {
+      connectedEdges.forEach(e => {
+        try {
+          const ve = e.data && e.data('vlan');
+          if (ve !== undefined && ve !== null && String(ve) !== 'null' && String(ve) !== '') vlans.add(String(ve));
+        } catch (_) {}
+      });
+    }
+  
     let lines = [`${d.label || d.name || node.id()}`];
     if (d.site_path) lines.push(`Sede: ${d.site_path}`);
     else lines.push('Sin sede');
-
-    lines.push(`Puertos: ${summary.total} total • ${summary.used || 0} usados • ${free} libres`);    if (ports && ports.length) {
+  
+    lines.push(`Puertos: ${summary.total} total • ${summary.used || 0} usados • ${free} libres`);
+    if (vlans.size) lines.push(`VLANs: ${Array.from(vlans).join(', ')}`);
+  
+    if (ports && ports.length) {
       const topPorts = ports.slice(0, 10).map(p => {
         const used = (p.connected === true) ? 'usado' : 'libre';
         const kind = p.kind?.replace(/-/g, ' ') || '';

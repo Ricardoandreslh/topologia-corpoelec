@@ -388,18 +388,21 @@
       let connections = [];
       try { connections = await API.getConnections(networkId); } catch (e) { console.warn('getConnections failed', e); }
   
+      // Construir mapa puerto -> { peerDeviceId, peerPortName, vlan }
       const portConnMap = new Map();
       (connections || []).forEach(conn => {
         if (conn.a_port_id) {
           portConnMap.set(Number(conn.a_port_id), {
             peerDeviceId: conn.to_device_id,
-            peerPortName: conn.b_port_name || null
+            peerPortName: conn.b_port_name || null,
+            vlan: conn.vlan || null
           });
         }
         if (conn.b_port_id) {
           portConnMap.set(Number(conn.b_port_id), {
             peerDeviceId: conn.from_device_id,
-            peerPortName: conn.a_port_name || null
+            peerPortName: conn.a_port_name || null,
+            vlan: conn.vlan || null
           });
         }
       });
@@ -412,6 +415,7 @@
           copy.connected = true;
           copy.peerDeviceId = pm.peerDeviceId;
           copy.peerPortName = pm.peerPortName;
+          copy.vlan = pm.vlan;
           if (pm.peerDeviceId) peerDeviceIds.add(pm.peerDeviceId);
         } else {
           copy.connected = !!p.connected;
@@ -481,6 +485,7 @@
                 const peerName = deviceNameById[p.peerDeviceId] || String(p.peerDeviceId);
                 const peerPort = p.peerPortName ? ` — ${escapeHtml(p.peerPortName)}` : '';
                 connInfo = ` • Conectado a ${escapeHtml(peerName)}${peerPort}`;
+                if (p.vlan) connInfo += ` • VLAN ${escapeHtml(String(p.vlan))}`;
               } else {
                 if (p.connection_to) connInfo = ` • Conectado a ${escapeHtml(String(p.connection_to))}`;
                 else if (p.remote_device) connInfo = ` • Conectado a ${escapeHtml(String(p.remote_device))}`;
@@ -1212,14 +1217,17 @@ document.addEventListener('node:contextmenu', function(evt) {
   
   async function openPortSelectionModal(deviceId, portType) {
     const ports = await API.getPorts(deviceId);
-    const freePorts = ports.filter(p => !p.connected); 
+    const freePorts = ports.filter(p => !p.connected);
   
     if (freePorts.length === 0) {
       alert('No hay puertos libres en este dispositivo.');
       return;
     }
-    const isB = portType === 'B';
-    const vlanInputHtml = isB ? `
+  
+    const isA = portType === 'A';
+    // Pedimos VLAN en el modal A (primer paso). Si ya elegiste A con VLAN,
+    // en el paso B no pedimos VLAN nuevamente y usamos la que quedó guardada.
+    const vlanInputHtml = isA ? `
         <div style="margin-top:10px;">
           <label for="port-vlan">VLAN (opcional, 1-4094)</label>
           <input id="port-vlan" type="number" min="1" max="4094" placeholder="Ej: 100" />
@@ -1245,18 +1253,7 @@ document.addEventListener('node:contextmenu', function(evt) {
       const selectedPortIdStr = document.getElementById('port-select').value;
       const selectedPort = freePorts.find(p => String(p.id) === String(selectedPortIdStr));
       if (portType === 'A') {
-        window.selectedPortA = { 
-          deviceId: parseInt(deviceId, 10), 
-          portId: parseInt(selectedPortIdStr, 10),
-          portName: selectedPort?.name || null
-        };
-        setStatus('Puerto origen seleccionado. Selecciona dispositivo destino.', false);
-      } else {
-        const networkId = parseInt(new URLSearchParams(location.search).get('network_id') || '1', 10);
-        const bPortId = parseInt(selectedPortIdStr, 10);
-        const bPortName = selectedPort?.name || null;
-  
-        // VLAN (opcional)
+        // Leer VLAN en A (opcional)
         let vlanVal = null;
         const vlanEl = document.getElementById('port-vlan');
         if (vlanEl && vlanEl.value !== '') {
@@ -1267,6 +1264,22 @@ document.addEventListener('node:contextmenu', function(evt) {
           }
           vlanVal = v;
         }
+  
+        window.selectedPortA = {
+          deviceId: parseInt(deviceId, 10),
+          portId: parseInt(selectedPortIdStr, 10),
+          portName: selectedPort?.name || null,
+          vlan: vlanVal
+        };
+        setStatus('Puerto origen seleccionado. Selecciona dispositivo destino.', false);
+      } else {
+        const networkId = parseInt(new URLSearchParams(location.search).get('network_id') || '1', 10);
+        const bPortId = parseInt(selectedPortIdStr, 10);
+        const bPortName = selectedPort?.name || null;
+  
+        // VLAN: usar la VLAN escogida en A (si existe)
+        let vlanVal = null;
+        if (window.selectedPortA && window.selectedPortA.vlan) vlanVal = window.selectedPortA.vlan;
   
         const data = {
           network_id: networkId,
