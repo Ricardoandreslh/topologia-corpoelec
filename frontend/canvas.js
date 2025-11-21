@@ -119,7 +119,6 @@
 
   function mapElements(graph) {
     const nodeVlanMap = {}; // nodeId -> Set(vlan)
-    const vlanGroups = new Set();
   
     (graph.edges || []).forEach(e => {
       let ev = e.vlan;
@@ -127,7 +126,6 @@
       if (Array.isArray(ev)) arr = ev.map(x => String(x));
       else if (ev !== undefined && ev !== null) arr = [String(ev)];
       if (arr && arr.length) {
-        arr.forEach(v => vlanGroups.add(v));
         nodeVlanMap[e.source] = nodeVlanMap[e.source] || new Set();
         arr.forEach(v => nodeVlanMap[e.source].add(v));
         nodeVlanMap[e.target] = nodeVlanMap[e.target] || new Set();
@@ -135,40 +133,19 @@
       }
     });
   
-    // Crear nodos-compuesto para cada VLAN
-    const vlanNodes = Array.from(vlanGroups).map(v => ({
-      group: 'nodes',
-      data: {
-        id: `vlan-group-${v}`,
-        label: `VLAN ${v}`,
-        type: 'vlan-group',
-        isVlanGroup: 'true',
-        network_id: graph.network_id,
-        vlanId: v
-      }
-    }));
-  
-    // Mapear dispositivos (y asignar parent si tienen al menos una VLAN - la primera)
+    // Mapear dispositivos (SIN parent por VLAN)
     const nodes = (graph.nodes || []).map(n => {
       let meta = {};
       if (n.metadata) {
-        try {
-          meta = typeof n.metadata === 'string' ? JSON.parse(n.metadata) : n.metadata;
-        } catch (e) {
-          console.warn('Error parsing metadata for node', n.id, e);
-        }
+        try { meta = typeof n.metadata === 'string' ? JSON.parse(n.metadata) : n.metadata; } catch (e) { meta = {}; }
       }
       const p = meta.pos || meta.position || (hasNum(n.x) && hasNum(n.y) ? { x: n.x, y: n.y } : null);
       const portsArr = Array.isArray(n.ports) ? n.ports : [];
-      const derivedSummary = {
-        total: portsArr.length,
-        used: portsArr.filter(p => p.connected === true).length
-      };
+      const derivedSummary = { total: portsArr.length, used: portsArr.filter(p => p.connected === true).length };
       const finalSummary = n.ports_summary || (portsArr.length ? derivedSummary : { total: 0, used: 0 });
   
-      // elegir primera VLAN si hay varias
+      // VLANs del nodo (para tooltip), no se usan como parent
       const vlansForNode = Array.from((nodeVlanMap[n.id] && nodeVlanMap[n.id].size) ? nodeVlanMap[n.id] : []);
-      const parent = vlansForNode.length ? `vlan-group-${vlansForNode[0]}` : undefined;
   
       return {
         group: 'nodes',
@@ -187,35 +164,33 @@
           site_id: n.site_id || null,
           ghost: n.ghost ? 'true' : 'false',
           invisible: n.invisible ? 'true' : 'false',
-          parent: parent, // si undefined, no se setea
-          // indicador para saber si ya tenía pos guardada
+          // campo auxiliar con VLANs (array o null) para tooltip/details
+          vlanList: vlansForNode.length ? vlansForNode : null,
+          // indicador si ya tenía pos guardada
           _hasPos: !!p
         },
         position: p && hasNum(p.x) && hasNum(p.y) ? { x: Number(p.x), y: Number(p.y) } : undefined
       };
     });
   
-    // Helper para label de VLAN(s)
-    function vlanLabelFrom(eVlan) {
-      if (!eVlan && eVlan !== 0) return '';
-      if (Array.isArray(eVlan)) return eVlan.join(', ');
-      return String(eVlan);
-    }
-  
+    // Mapear edges: etiqueta combinada con link_type y VLANs
     const edges = (graph.edges || []).map(e => {
       const arr = Array.isArray(e.vlan) ? e.vlan.map(v => String(v)) : (e.vlan !== undefined && e.vlan !== null ? [String(e.vlan)] : []);
       const vlanStr = arr.length ? arr.join(',') : null;
-      const vlanKey = arr.length ? arr[0] : null; // primera vlan para color si se quisiera
+      const vlanKey = arr.length ? arr[0] : null;
+      const linkType = e.type || 'ethernet';
+      const label = vlanStr ? `${linkType} • VLAN ${vlanStr}` : linkType;
       return {
         group: 'edges',
         data: {
           id: String(e.id || (e.source + '->' + e.target)),
           source: String(e.source),
           target: String(e.target),
-          vlanStr: vlanStr, 
+          label: label,
+          vlanStr: vlanStr,    // opcional, todavía disponible
           vlan: arr.length ? arr : null,
           vlanKey: vlanKey,
-          link_type: e.type || '',
+          link_type: linkType,
           status: e.status || '',
           network_id: e.network_id,
           cross: e.cross === true ? 'true' : 'false'
@@ -223,9 +198,8 @@
       };
     });
   
-    return { nodes: [...vlanNodes, ...nodes], edges };
+    return { nodes, edges };
   }
-
   function baseStyle(theme = 'light') {
     const isDark = theme === 'dark';
     return [
@@ -243,11 +217,6 @@
       { selector: 'node[category = "switch"]',
         style: { 'shape': 'round-rectangle', 'background-color': '#2ecc71', 'border-color': '#27ae60' }
       },
-      { selector: 'node[isVlanGroup = "true"]',
-      style: {
-        'display': 'none'
-      }
-    },
     { selector: 'edge[label]',
       style: {
         'label': 'data(label)',
@@ -261,10 +230,11 @@
       { selector: 'node:selected', style: { 'border-color': '#e74c3c', 'border-width': 3 } },
       { selector: 'node:hover',    style: { 'cursor': 'pointer' } },
       {
-        selector: 'edge[vlanStr]',
+        selector: 'edge',
         style: {
           'width': 2,
-          'label': 'data(vlanStr)',
+          // Usamos data(label) para mostrar tanto link_type como VLAN(s)
+          'label': 'data(label)',
           'font-size': 10,
           'text-background-color': '#ffffff',
           'text-background-opacity': 0.92,
@@ -278,22 +248,22 @@
           'text-rotation': 'autorotate',
           'curve-style': 'bezier',
           'target-arrow-shape': 'none',
+          // Color de línea: si hay vlanKey usamos hue, si no usamos color por defecto
           'line-color': (ele) => {
             try {
               const key = ele.data && ele.data('vlanKey');
-              if (!key) return (theme === 'dark' ? '#bdc3c7' : '#95a5a6');
+              if (!key) return '#95a5a6';
               const vid = Number(key);
-              if (Number.isNaN(vid)) return (theme === 'dark' ? '#bdc3c7' : '#95a5a6');
+              if (Number.isNaN(vid)) return '#95a5a6';
               const hue = (vid * 37) % 360;
-              return `hsl(${hue}, 70%, ${theme === 'dark' ? '70%' : '40%'})`;
-            } catch (e) { return (theme === 'dark' ? '#bdc3c7' : '#95a5a6'); }
+              return `hsl(${hue}, 70%, 40%)`;
+            } catch (e) { return '#95a5a6'; }
           },
-          'color': theme === 'dark' ? '#0b0b0b' : '#0b0b0b',
+          'color': '#0b0b0b',
           'text-margin-y': -6
         }
       },
   
-      // estilo para edges SIN vlanStr: mostrar tipo de enlace (link_type) en la etiqueta
       {
         selector: 'edge:not([vlanStr])',
         style: {
@@ -637,15 +607,8 @@
     }
     return inside;
   }
-  
-  function drawVlanHulls(_cy) {
 
-    return;
-  }
-  
-  function separateIntrudingNodes(_cy) {
-    return;
-  }
+
 
   function renderGraph(graph, opts = {}) {  
     const containerId = opts.containerId || 'canvas';
@@ -663,11 +626,7 @@
     const layoutInstance = cy.layout(layout);
     
     const nodesWithoutPos = [];
-    elements.nodes.forEach(n => {
-      if (n.data && !n.data._hasPos && n.data.type !== 'vlan-group') {
-        nodesWithoutPos.push(String(n.data.id));
-      }
-    });
+
 
     layoutInstance.run();
 
