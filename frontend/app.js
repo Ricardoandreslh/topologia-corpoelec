@@ -64,6 +64,8 @@
     }
   });
 
+  
+
   function bindUIControls() {
     const zoomInBtn = document.getElementById('zoom-in');
     const zoomOutBtn = document.getElementById('zoom-out');
@@ -71,9 +73,15 @@
     const backgroundBtn = document.getElementById('toggle-background');
     const searchInput = document.getElementById('device-search');
     const exportBtn = document.getElementById('export-excel');
+    const exportPngBtn = document.getElementById('export-png');
+    const exportSvgBtn = document.getElementById('export-svg');
+
     if (exportBtn) {
       exportBtn.addEventListener('click', handleExportExcel);
     }
+    if (exportPngBtn) exportPngBtn.addEventListener('click', handleExportPNG);
+    if (exportSvgBtn) exportSvgBtn.addEventListener('click', handleExportSVG);
+
     if (zoomInBtn) {
       zoomInBtn.addEventListener('click', handleZoomIn);
     }
@@ -91,21 +99,40 @@
     }
   
     if (searchInput) {
-      // Antes: searchInput.addEventListener('input', handleSearch);
-      // Ahora: debounce para ejecutar la búsqueda solo cuando el usuario deja de escribir
       const debouncedSearch = debounce(handleSearch, 280);
       searchInput.addEventListener('input', debouncedSearch);
-      // Mantener escape para limpiar al pulsar Esc
       searchInput.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
           searchInput.value = '';
-          // ejecutar la búsqueda inmediatamente para limpiar resultados
           handleSearch({ target: searchInput });
         }
       });
     }
   }
-  
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const applyBtn = document.getElementById('vlan-filter-apply');
+    const clearBtn = document.getElementById('vlan-filter-clear');
+    if (applyBtn) {
+      applyBtn.addEventListener('click', () => {
+        const v = (document.getElementById('vlan-filter')?.value || '').trim();
+        // guardar en sessionStorage para persistir entre cargas básicas
+        try { sessionStorage.setItem('vlan_filter', v); } catch (_) {}
+        GRAPH_CACHE.clear();
+        loadGraphFor(getCurrentView(), getCurrentSiteId(), { vlanFilter: v ? v.split(',').map(s => s.trim()) : null });
+      });
+    }
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        try { sessionStorage.removeItem('vlan_filter'); } catch (_) {}
+        const el = document.getElementById('vlan-filter');
+        if (el) el.value = '';
+        GRAPH_CACHE.clear();
+        loadGraphFor(getCurrentView(), getCurrentSiteId(), { vlanFilter: null });
+      });
+    }
+  });
+
   function initSitePanel() {
     const networkId = new URLSearchParams(location.search).get('network_id') || '1';
     const panel = document.createElement('div');
@@ -185,37 +212,54 @@
       const view = getCurrentView(); 
       const full = await fetchFullGraph(networkId, getCurrentSiteId()); 
       const projected = projectGraphForView(full, view);
-        const nodesData = (projected.nodes || []).map(n => ({
-        ID: n.id,
-        Nombre: n.label || n.id,
-        Tipo: n.type,
-        Categoría: n.category,
-        IP: n.ip || '',
-        MAC: n.mac || '',
-        Ubicación: n.location || '',
-        Red_ID: n.network_id,
-        Fantasma: n.ghost ? 'Sí' : 'No'
+      
+      // Preparar nodos: incluir resumen de puertos y lista compacta
+      const nodesData = await Promise.all((projected.nodes || []).map(async (n) => {
+        // intentar obtener puertos desde n.ports si ya vienen; si no, consultar API
+        let ports = n.ports || [];
+        if ((!ports || ports.length === 0) && n.id) {
+          try { ports = await API.getPorts(n.id); } catch (_) { ports = []; }
+        }
+        const portsDetail = (ports || []).map(p => `${p.name}${p.connected ? ' (U)' : ''}${p.kind ? ' '+p.kind : ''}`).join('; ');
+        return {
+          ID: n.id,
+          Nombre: n.label || n.id,
+          Tipo: n.type,
+          Categoría: n.category || nodeCategory(n.type),
+          IP: n.ip || '',
+          MAC: n.mac || '',
+          Ubicación: n.location || '',
+          Red_ID: n.network_id,
+          Fantasma: n.ghost ? 'Sí' : 'No',
+          Puertos_Total: (ports || []).length,
+          Puertos_Detalle: portsDetail
+        };
       }));
-  
-      const edgesData = (projected.edges || []).map(e => ({
-        ID: e.id,
-        Origen: e.source,
-        Destino: e.target,
-        Tipo_Enlace: e.link_type || '',
-        Estado: e.status || '',
-        Cruzado: e.cross ? 'Sí' : 'No',
-        Red_ID: e.network_id
-      }));
-  
+
+      // Preparar edges: incluir VLANs y nombres de puertos si existen
+      const edgesData = (projected.edges || []).map(e => {
+        const vlanVal = Array.isArray(e.vlan) ? e.vlan.join(',') : (e.vlan || '');
+        return {
+          ID: e.id,
+          Origen: e.source,
+          Destino: e.target,
+          Tipo_Enlace: e.link_type || '',
+          Estado: e.status || '',
+          VLANs: vlanVal,
+          Cruzado: e.cross ? 'Sí' : 'No',
+          Red_ID: e.network_id
+        };
+      });
+
       const wb = XLSX.utils.book_new();
       const wsNodes = XLSX.utils.json_to_sheet(nodesData);
       const wsEdges = XLSX.utils.json_to_sheet(edgesData);
       XLSX.utils.book_append_sheet(wb, wsNodes, 'Nodos');
       XLSX.utils.book_append_sheet(wb, wsEdges, 'Enlaces');
-  
+
       const fileName = `grafo_red_${networkId}_${view}_${new Date().toISOString().split('T')[0]}.xlsx`;
       XLSX.writeFile(wb, fileName);
-  
+
       if (typeof setStatus === 'function') setStatus('Archivo Excel exportado: ' + fileName);
     } catch (err) {
       console.error('Error exportando a Excel:', err);
@@ -223,6 +267,28 @@
     }
   }
   
+  async function handleExportPNG() {
+    try {
+      const containerId = getActiveContainerId();
+      await Canvas.exportPNG(containerId);
+      setStatus('PNG exportado', false);
+    } catch (err) {
+      console.error('Error exportando PNG', err);
+      setStatus('Error exportando PNG: ' + (err?.message || 'desconocido'), true);
+    }
+  }
+
+  async function handleExportSVG() {
+    try {
+      const containerId = getActiveContainerId();
+      await Canvas.exportSVG(containerId);
+      setStatus('SVG exportado', false);
+    } catch (err) {
+      console.error('Error exportando SVG', err);
+      setStatus('Error exportando SVG: ' + (err?.message || 'desconocido'), true);
+    }
+  }
+
   function bindCRUDButtons() {
     const addDeviceBtn = document.getElementById('add-device');
     const addConnectionBtn = document.getElementById('add-connection');
@@ -1102,7 +1168,14 @@ function projectGraphForView(full, view, opts = {}) {
 
   const primaryNodes = nodes.filter(n => nodeCategory(n.type) === desired);
   const primaryIds = new Set(primaryNodes.map(n => String(n.id)));
-
+  if (opts && opts.vlanFilter && Array.isArray(opts.vlanFilter) && opts.vlanFilter.length) {
+    const wanted = new Set(opts.vlanFilter.map(x => String(x)));
+    viewEdges = viewEdges.filter(e => {
+      if (!e.vlan) return false;
+      const arr = Array.isArray(e.vlan) ? e.vlan.map(v => String(v)) : [String(e.vlan)];
+      return arr.some(v => wanted.has(v));
+    });
+  }
   let viewEdges = edges  
     .filter(e => primaryIds.has(String(e.source)) || primaryIds.has(String(e.target)))
     .map(e => {

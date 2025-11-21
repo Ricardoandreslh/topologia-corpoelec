@@ -202,31 +202,27 @@
       return String(eVlan);
     }
   
-    // Mapear edges incluyendo vlan en data y mostrandola en el label
     const edges = (graph.edges || []).map(e => {
       const arr = Array.isArray(e.vlan) ? e.vlan.map(v => String(v)) : (e.vlan !== undefined && e.vlan !== null ? [String(e.vlan)] : []);
       const vlanStr = arr.length ? arr.join(',') : null;
-      const vlanKey = arr.length ? arr[0] : null; // primera vlan para color / grouping
-      const vlanLabel = vlanStr ? ` • VLAN ${vlanStr}` : '';
+      const vlanKey = arr.length ? arr[0] : null; // primera vlan para color si se quisiera
       return {
         group: 'edges',
         data: {
           id: String(e.id || (e.source + '->' + e.target)),
           source: String(e.source),
           target: String(e.target),
-          label: ((e.type || '') + vlanLabel).trim(),
+          vlanStr: vlanStr, 
+          vlan: arr.length ? arr : null,
+          vlanKey: vlanKey,
           link_type: e.type || '',
           status: e.status || '',
           network_id: e.network_id,
-          cross: e.cross === true ? 'true' : 'false',
-          vlan: arr.length ? arr : null,
-          vlanStr: vlanStr,
-          vlanKey: vlanKey
+          cross: e.cross === true ? 'true' : 'false'
         }
       };
     });
   
-    // devolver: primero los vlanNodes (padres), luego dispositivos y edges
     return { nodes: [...vlanNodes, ...nodes], edges };
   }
 
@@ -249,20 +245,7 @@
       },
       { selector: 'node[isVlanGroup = "true"]',
       style: {
-        'shape': 'round-rectangle',
-        'background-color': '#8e44ad',       // color distintivo para grupo VLAN
-        'background-opacity': 0.08,
-        'border-color': '#8e44ad',
-        'border-style': 'dashed',
-        'border-width': 1,
-        'label': 'data(label)',
-        'font-size': 12,
-        'text-valign': 'top',
-        'text-halign': 'center',
-        'text-margin-y': 8,
-        'padding': 12,
-        'width': 'label',
-        'height': 'label'
+        'display': 'none'
       }
     },
     // además, para distinguir mejor las edges con VLAN, podrías añadir:
@@ -282,21 +265,34 @@
         selector: 'edge',
         style: {
           'width': 2,
-          // color dinámico según vlanKey (usar primer VLAN si existe)
+          // Mostrar solo el campo data(vlanStr) como etiqueta-badge
+          'label': 'data(vlanStr)',
+          'font-size': 10,
+          'text-background-color': '#ffffff',
+          'text-background-opacity': 0.92,
+          'text-background-padding': 4,
+          'text-background-shape': 'roundrectangle',
+          'text-border-color': '#ddd',
+          'text-border-width': 0.6,
+          'text-border-opacity': 0.8,
+          'text-valign': 'center',
+          'text-halign': 'center',
+          'text-rotation': 'autorotate',
+          'curve-style': 'bezier',
+          'target-arrow-shape': 'none',
+          // color de línea según primera VLAN si existe (mantengo la lógica anterior)
           'line-color': (ele) => {
             try {
               const key = ele.data && ele.data('vlanKey');
               if (!key) return (theme === 'dark' ? '#bdc3c7' : '#95a5a6');
               const vid = Number(key);
               if (Number.isNaN(vid)) return (theme === 'dark' ? '#bdc3c7' : '#95a5a6');
-              // función simple de color: mapa por hue
-              const hue = (vid * 37) % 360; // 37 es constante para mezclar bien
+              const hue = (vid * 37) % 360;
               return `hsl(${hue}, 70%, ${theme === 'dark' ? '70%' : '40%'})`;
             } catch (e) { return (theme === 'dark' ? '#bdc3c7' : '#95a5a6'); }
           },
-          'curve-style': 'bezier', 'target-arrow-shape': 'none',
-          'label': 'data(label)', 'font-size': 8, 'text-rotation': 'autorotate', 'color': theme === 'dark' ? '#ffffff' : '#34495e',
-          'text-margin-y': -5
+          'color': theme === 'dark' ? '#0b0b0b' : '#0b0b0b', // color del texto dentro del badge (oscuro sobre bg blanco)
+          'text-margin-y': -6
         }
       },
       { selector: 'node[invisible = "true"]',
@@ -725,6 +721,39 @@
     instances.delete(containerId);
   }
 
+  function exportPNG(containerId = 'canvas-wifi', filename = null) {
+    const cy = instances.get(containerId);
+    if (!cy) return Promise.reject(new Error('Canvas no encontrado'));
+    const name = filename || `topologia_${containerId}_${new Date().toISOString().replace(/[:.]/g,'-')}.png`;
+    // scale mayor para alta resolución
+    const data = cy.png({ full: true, scale: 2, bg: '#ffffff' });
+    // crear link y descargar
+    const a = document.createElement('a');
+    a.href = data;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    return Promise.resolve();
+  }
+
+  // Exportar SVG del canvas activo
+  function exportSVG(containerId = 'canvas-wifi', filename = null) {
+    const cy = instances.get(containerId);
+    if (!cy) return Promise.reject(new Error('Canvas no encontrado'));
+    const svgStr = cy.svg({ full: true, scale: 1 });
+    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    const name = filename || `topologia_${containerId}_${new Date().toISOString().replace(/[:.]/g,'-')}.svg`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    return Promise.resolve();
+  }
   global.Canvas = { 
     renderGraph, 
     fit, 
@@ -735,6 +764,8 @@
     toggleBackground, 
     searchNodes,
     updateTheme,
-    nodeCategory 
+    nodeCategory,
+    exportPNG,
+    exportSVG
   };
 })(window);
