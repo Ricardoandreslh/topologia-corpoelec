@@ -485,8 +485,11 @@
                 const peerName = deviceNameById[p.peerDeviceId] || String(p.peerDeviceId);
                 const peerPort = p.peerPortName ? ` — ${escapeHtml(p.peerPortName)}` : '';
                 connInfo = ` • Conectado a ${escapeHtml(peerName)}${peerPort}`;
-                if (p.vlan) connInfo += ` • VLAN ${escapeHtml(String(p.vlan))}`;
-              } else {
+                  if (p.vlan) {
+                    const vtxt = Array.isArray(p.vlan) ? p.vlan.join(', ') : String(p.vlan);
+                    connInfo += ` • VLAN ${escapeHtml(vtxt)}`;
+                  }
+                } else {
                 if (p.connection_to) connInfo = ` • Conectado a ${escapeHtml(String(p.connection_to))}`;
                 else if (p.remote_device) connInfo = ` • Conectado a ${escapeHtml(String(p.remote_device))}`;
                 else if (p.peer) connInfo = ` • Conectado a ${escapeHtml(String(p.peer))}`;
@@ -1225,12 +1228,11 @@ document.addEventListener('node:contextmenu', function(evt) {
     }
   
     const isA = portType === 'A';
-    // Pedimos VLAN en el modal A (primer paso). Si ya elegiste A con VLAN,
-    // en el paso B no pedimos VLAN nuevamente y usamos la que quedó guardada.
+    // Pedimos VLAN(s) en el modal A (primer paso). Entrada libre: coma-separada (ej: "10,20,30").
     const vlanInputHtml = isA ? `
         <div style="margin-top:10px;">
-          <label for="port-vlan">VLAN (opcional, 1-4094)</label>
-          <input id="port-vlan" type="number" min="1" max="4094" placeholder="Ej: 100" />
+          <label for="port-vlan">VLAN(s) (opcional). CSV, ej: 10,20,30</label>
+          <input id="port-vlan" type="text" placeholder="Ej: 10,20,30" />
         </div>` : '';
   
     const modal = document.createElement('div');
@@ -1249,20 +1251,29 @@ document.addEventListener('node:contextmenu', function(evt) {
       </div>
     `;
     document.body.appendChild(modal);
+  
+    function parseVlanInput(txt) {
+      if (!txt) return null;
+      // split por coma, quitar espacios, filtrar vacíos y convertir a enteros
+      const parts = txt.split(',').map(s => s.trim()).filter(Boolean);
+      const nums = parts.map(p => parseInt(p, 10)).filter(n => !Number.isNaN(n));
+      if (nums.length === 0) return null;
+      // validar rango 1..4094
+      if (nums.some(v => v < 1 || v > 4094)) return { error: 'VLAN inválida. Rango 1..4094' };
+      return nums;
+    }
+  
     document.getElementById('port-ok').addEventListener('click', async () => {
       const selectedPortIdStr = document.getElementById('port-select').value;
       const selectedPort = freePorts.find(p => String(p.id) === String(selectedPortIdStr));
       if (portType === 'A') {
-        // Leer VLAN en A (opcional)
+        // Leer VLAN(s) en A (opcional)
         let vlanVal = null;
         const vlanEl = document.getElementById('port-vlan');
         if (vlanEl && vlanEl.value !== '') {
-          const v = parseInt(vlanEl.value, 10);
-          if (isNaN(v) || v < 1 || v > 4094) {
-            alert('VLAN inválida. Debe ser un número entre 1 y 4094.');
-            return;
-          }
-          vlanVal = v;
+          const parsed = parseVlanInput(vlanEl.value);
+          if (parsed && parsed.error) { alert(parsed.error); return; }
+          vlanVal = parsed;
         }
   
         window.selectedPortA = {
@@ -1277,7 +1288,7 @@ document.addEventListener('node:contextmenu', function(evt) {
         const bPortId = parseInt(selectedPortIdStr, 10);
         const bPortName = selectedPort?.name || null;
   
-        // VLAN: usar la VLAN escogida en A (si existe)
+        // VLAN: usar la VLAN(s) escogida en A (si existe)
         let vlanVal = null;
         if (window.selectedPortA && window.selectedPortA.vlan) vlanVal = window.selectedPortA.vlan;
   

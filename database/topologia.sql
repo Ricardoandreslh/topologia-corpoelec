@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 20-11-2025 a las 15:08:14
+-- Tiempo de generación: 21-11-2025 a las 14:26:17
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -59,7 +59,8 @@ INSERT INTO `connections` (`id`, `network_id`, `from_device_id`, `a_port_id`, `t
 (254, 1, 152, 130, 159, 234, 'ethernet', 'up', NULL, '2025-11-14 18:06:44', 'Gi0/15', 'Gi0/1', NULL),
 (256, 1, 152, 118, 157, 223, 'ethernet', 'up', NULL, '2025-11-14 18:08:19', 'Gi0/3', 'Fa0/4', NULL),
 (257, 1, 152, 119, 163, 257, 'ethernet', 'up', NULL, '2025-11-20 12:49:18', 'Gi0/4', 'Fa0/2', NULL),
-(265, 1, 155, 178, 162, 243, 'ethernet', 'up', 20, '2025-11-20 14:06:14', 'Fa0/1', 'Gi0/1', NULL);
+(272, 1, 163, 256, 164, 262, 'ethernet', 'up', 10, '2025-11-21 13:24:30', 'Fa0/1', 'Fa0/2', NULL),
+(273, 1, 164, 263, 162, 243, 'ethernet', 'up', 10, '2025-11-21 13:24:53', 'Fa0/3', 'Gi0/1', NULL);
 
 -- --------------------------------------------------------
 
@@ -94,9 +95,9 @@ INSERT INTO `devices` (`id`, `network_id`, `name`, `ip_address`, `mac_address`, 
 (157, 1, 'ROUTER HUAWEI AR 2941', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'NODO PISO 1', NULL, NULL, '2025-11-14 17:44:12', '2025-11-14 18:44:50', 4),
 (158, 1, 'ZTE S200', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'NODO PISO 1 TORRE UNION', NULL, NULL, '2025-11-14 17:53:52', '2025-11-14 17:53:52', 4),
 (159, 1, 'MIKROTIK RB5009', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'NODO PISO 1 TORRE UNION', NULL, NULL, '2025-11-14 17:54:32', '2025-11-14 18:44:56', 4),
-(162, 1, 'SW ENCORE UREE', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'UREE PISO 1', NULL, NULL, '2025-11-14 18:01:02', '2025-11-14 18:01:02', 4),
-(163, 1, 'BIOMETRICO', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'Planta Baja', NULL, NULL, '2025-11-14 18:04:05', '2025-11-14 18:04:05', 4),
-(164, 1, 'SERVIDOR BIOMETRICO', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'Piso 1', NULL, NULL, '2025-11-14 18:04:30', '2025-11-14 18:04:30', 4);
+(162, 1, 'SW ENCORE UREE', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'UREE PISO 1', NULL, NULL, '2025-11-14 18:01:02', '2025-11-21 13:25:36', 4),
+(163, 1, 'BIOMETRICO', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'Planta Baja', NULL, NULL, '2025-11-14 18:04:05', '2025-11-21 13:25:40', 4),
+(164, 1, 'SERVIDOR BIOMETRICO', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'Piso 1', NULL, NULL, '2025-11-14 18:04:30', '2025-11-21 13:25:45', 4);
 
 -- --------------------------------------------------------
 
@@ -831,7 +832,7 @@ ALTER TABLE `view_backgrounds`
 -- AUTO_INCREMENT de la tabla `connections`
 --
 ALTER TABLE `connections`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=266;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=274;
 
 --
 -- AUTO_INCREMENT de la tabla `devices`

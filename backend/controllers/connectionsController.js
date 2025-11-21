@@ -65,13 +65,24 @@ async function create(req, res) {
       if (!bPort[0] || bPort[0].device_id != payload.to_device_id) return res.status(400).json({ error: 'Puerto B no pertenece al dispositivo destino' });
     }
 
-    // Validar VLAN si viene
+    // Validar VLAN(s) si vienen (puede ser número o array)
     if (payload.vlan !== null) {
-      const v = Number(payload.vlan);
-      if (!Number.isInteger(v) || v < 1 || v > 4094) {
-        return res.status(400).json({ error: 'VLAN inválida. Rango 1..4094' });
+      if (Array.isArray(payload.vlan)) {
+        if (payload.vlan.length === 0) payload.vlan = null;
+        else {
+          const parsed = payload.vlan.map(v => Number(v));
+          if (parsed.some(v => !Number.isInteger(v) || v < 1 || v > 4094)) {
+            return res.status(400).json({ error: 'VLAN inválida en lista. Rango 1..4094' });
+          }
+          payload.vlan = parsed;
+        }
+      } else {
+        const v = Number(payload.vlan);
+        if (!Number.isInteger(v) || v < 1 || v > 4094) {
+          return res.status(400).json({ error: 'VLAN inválida. Rango 1..4094' });
+        }
+        payload.vlan = v;
       }
-      payload.vlan = v;
     }
 
     const result = await Connections.createConnection(payload);
@@ -126,6 +137,12 @@ async function update(req, res) {
     if (fields.vlan !== undefined) {
       if (fields.vlan === null || fields.vlan === '') {
         fields.vlan = null;
+      } else if (Array.isArray(fields.vlan)) {
+        const parsed = fields.vlan.map(v => Number(v));
+        if (parsed.some(v => !Number.isInteger(v) || v < 1 || v > 4094)) {
+          return res.status(400).json({ error: 'VLAN inválida en lista. Rango 1..4094' });
+        }
+        fields.vlan = parsed;
       } else {
         const v = Number(fields.vlan);
         if (!Number.isInteger(v) || v < 1 || v > 4094) {

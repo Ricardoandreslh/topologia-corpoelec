@@ -118,18 +118,20 @@
   }
 
   function mapElements(graph) {
-    // Primero identificar VLANs por nodo (a partir de edges)
     const nodeVlanMap = {}; // nodeId -> Set(vlan)
     const vlanGroups = new Set();
   
     (graph.edges || []).forEach(e => {
-      if (e.vlan !== undefined && e.vlan !== null) {
-        const v = String(e.vlan);
-        vlanGroups.add(v);
+      let ev = e.vlan;
+      let arr = null;
+      if (Array.isArray(ev)) arr = ev.map(x => String(x));
+      else if (ev !== undefined && ev !== null) arr = [String(ev)];
+      if (arr && arr.length) {
+        arr.forEach(v => vlanGroups.add(v));
         nodeVlanMap[e.source] = nodeVlanMap[e.source] || new Set();
-        nodeVlanMap[e.source].add(v);
+        arr.forEach(v => nodeVlanMap[e.source].add(v));
         nodeVlanMap[e.target] = nodeVlanMap[e.target] || new Set();
-        nodeVlanMap[e.target].add(v);
+        arr.forEach(v => nodeVlanMap[e.target].add(v));
       }
     });
   
@@ -141,7 +143,8 @@
         label: `VLAN ${v}`,
         type: 'vlan-group',
         isVlanGroup: 'true',
-        network_id: graph.network_id
+        network_id: graph.network_id,
+        vlanId: v
       }
     }));
   
@@ -184,27 +187,44 @@
           site_id: n.site_id || null,
           ghost: n.ghost ? 'true' : 'false',
           invisible: n.invisible ? 'true' : 'false',
-          parent: parent // si undefined, no se setea
+          parent: parent, // si undefined, no se setea
+          // indicador para saber si ya tenía pos guardada
+          _hasPos: !!p
         },
         position: p && hasNum(p.x) && hasNum(p.y) ? { x: Number(p.x), y: Number(p.y) } : undefined
       };
     });
   
+    // Helper para label de VLAN(s)
+    function vlanLabelFrom(eVlan) {
+      if (!eVlan && eVlan !== 0) return '';
+      if (Array.isArray(eVlan)) return eVlan.join(', ');
+      return String(eVlan);
+    }
+  
     // Mapear edges incluyendo vlan en data y mostrandola en el label
-    const edges = (graph.edges || []).map(e => ({
-      group: 'edges',
-      data: {
-        id: String(e.id || (e.source + '->' + e.target)),
-        source: String(e.source),
-        target: String(e.target),
-        label: ((e.type || '') + (e.vlan ? ` • VLAN ${e.vlan}` : '')).trim(),
-        link_type: e.type || '',
-        status: e.status || '',
-        network_id: e.network_id,
-        cross: e.cross === true ? 'true' : 'false',
-        vlan: e.vlan !== undefined && e.vlan !== null ? String(e.vlan) : null
-      }
-    }));
+    const edges = (graph.edges || []).map(e => {
+      const arr = Array.isArray(e.vlan) ? e.vlan.map(v => String(v)) : (e.vlan !== undefined && e.vlan !== null ? [String(e.vlan)] : []);
+      const vlanStr = arr.length ? arr.join(',') : null;
+      const vlanKey = arr.length ? arr[0] : null; // primera vlan para color / grouping
+      const vlanLabel = vlanStr ? ` • VLAN ${vlanStr}` : '';
+      return {
+        group: 'edges',
+        data: {
+          id: String(e.id || (e.source + '->' + e.target)),
+          source: String(e.source),
+          target: String(e.target),
+          label: ((e.type || '') + vlanLabel).trim(),
+          link_type: e.type || '',
+          status: e.status || '',
+          network_id: e.network_id,
+          cross: e.cross === true ? 'true' : 'false',
+          vlan: arr.length ? arr : null,
+          vlanStr: vlanStr,
+          vlanKey: vlanKey
+        }
+      };
+    });
   
     // devolver: primero los vlanNodes (padres), luego dispositivos y edges
     return { nodes: [...vlanNodes, ...nodes], edges };
@@ -258,11 +278,24 @@
       },
       { selector: 'node:selected', style: { 'border-color': '#e74c3c', 'border-width': 3 } },
       { selector: 'node:hover',    style: { 'cursor': 'pointer' } },
-      { selector: 'edge',
+      {
+        selector: 'edge',
         style: {
-          'width': 2, 'line-color': isDark ? '#bdc3c7' : '#95a5a6',   
+          'width': 2,
+          // color dinámico según vlanKey (usar primer VLAN si existe)
+          'line-color': (ele) => {
+            try {
+              const key = ele.data && ele.data('vlanKey');
+              if (!key) return (theme === 'dark' ? '#bdc3c7' : '#95a5a6');
+              const vid = Number(key);
+              if (Number.isNaN(vid)) return (theme === 'dark' ? '#bdc3c7' : '#95a5a6');
+              // función simple de color: mapa por hue
+              const hue = (vid * 37) % 360; // 37 es constante para mezclar bien
+              return `hsl(${hue}, 70%, ${theme === 'dark' ? '70%' : '40%'})`;
+            } catch (e) { return (theme === 'dark' ? '#bdc3c7' : '#95a5a6'); }
+          },
           'curve-style': 'bezier', 'target-arrow-shape': 'none',
-          'label': 'data(label)', 'font-size': 8, 'text-rotation': 'autorotate', 'color': isDark ? '#ffffff' : '#34495e',
+          'label': 'data(label)', 'font-size': 8, 'text-rotation': 'autorotate', 'color': theme === 'dark' ? '#ffffff' : '#34495e',
           'text-margin-y': -5
         }
       },
@@ -572,7 +605,41 @@
     const layout = layoutFor(elements, viewType);
     const layoutInstance = cy.layout(layout);
     
+    const nodesWithoutPos = [];
+    // construir lista de ids a persistir (solo dispositivos, no vlan-group)
+    elements.nodes.forEach(n => {
+      if (n.data && !n.data._hasPos && n.data.type !== 'vlan-group') {
+        nodesWithoutPos.push(String(n.data.id));
+      }
+    });
+
     layoutInstance.run();
+
+    // al terminar layout: persistir posiciones de aquellos que no tenían posición
+    layoutInstance.promiseOn('layoutstop').then(async () => {
+      try {
+        // guardar por nodo en background (no bloquear render)
+        const siteId = opts.siteId;
+        const posKey = siteId ? `pos_site_${siteId}` : 'pos';
+        // iterar elementos actuales en el cy para extraer posiciones
+        nodesWithoutPos.forEach(async (nid) => {
+          try {
+            const node = cy.getElementById(nid);
+            if (!node || !node.isNode()) return;
+            const pos = node.position();
+            const payload = { metadata: { [posKey]: { x: pos.x, y: pos.y } } };
+            // actualizar dispositivo (API lo mergea en backend)
+            await API.updateDevice(nid, payload);
+            // marcar _hasPos para evitar futuros guardados innecesarios
+            node.data('_hasPos', true);
+          } catch (err) {
+            console.warn('Error guardando posición inicial nodo', nid, err);
+          }
+        });
+      } catch (err) {
+        console.warn('Error en persistencia de posiciones iniciales', err);
+      }
+    }).catch(() => {});
     
     setTimeout(() => {
       cy.fit(cy.elements(), 60);
