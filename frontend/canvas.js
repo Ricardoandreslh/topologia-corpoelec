@@ -200,6 +200,7 @@
   
     return { nodes, edges };
   }
+
   function baseStyle(theme = 'light') {
     const isDark = theme === 'dark';
     return [
@@ -211,29 +212,18 @@
           'text-wrap': 'wrap', 'text-max-width': 100, 'text-valign': 'bottom', 'text-halign': 'center', 'text-margin-y': 8,
         }
       },
+      
       { selector: 'node[category = "wifi"]',
         style: { 'shape': 'hexagon', 'background-color': '#3498db', 'border-color': '#2980b9' }
       },
       { selector: 'node[category = "switch"]',
         style: { 'shape': 'round-rectangle', 'background-color': '#2ecc71', 'border-color': '#27ae60' }
       },
-    { selector: 'edge[label]',
-      style: {
-        'label': 'data(label)',
-        'font-size': 10,
-        'text-margin-y': -8
-      }
-    },
-      { selector: 'node[type = "router"]',
-        style: { 'shape': 'diamond', 'background-color': '#e67e22', 'border-color': '#d35400' }
-      },
-      { selector: 'node:selected', style: { 'border-color': '#e74c3c', 'border-width': 3 } },
-      { selector: 'node:hover',    style: { 'cursor': 'pointer' } },
+  
       {
         selector: 'edge',
         style: {
           'width': 2,
-          // Usamos data(label) para mostrar tanto link_type como VLAN(s)
           'label': 'data(label)',
           'font-size': 10,
           'text-background-color': '#ffffff',
@@ -248,7 +238,6 @@
           'text-rotation': 'autorotate',
           'curve-style': 'bezier',
           'target-arrow-shape': 'none',
-          // Color de línea: si hay vlanKey usamos hue, si no usamos color por defecto
           'line-color': (ele) => {
             try {
               const key = ele.data && ele.data('vlanKey');
@@ -264,58 +253,37 @@
         }
       },
   
-      {
-        selector: 'edge:not([vlanStr])',
-        style: {
-          'width': 2,
-          'label': 'data(link_type)',
-          'font-size': 10,
-          'text-background-color': 'transparent',
-          'text-background-opacity': 0,
-          'curve-style': 'bezier',
-          'target-arrow-shape': 'none',
-          'line-color': (ele) => {
-            // fallback color para edges sin VLAN
-            return (theme === 'dark' ? '#95a5a6' : '#95a5a6');
-          },
-          'color': theme === 'dark' ? '#ffffff' : '#2c3e50',
-          'text-margin-y': -6
-        }
-      },
-      { selector: 'node[invisible = "true"]',
-      style: {'opacity': 0, 
-              'width': 0, 
-              'height': 0 
-    }},
+      { selector: 'edge:selected', style: { 'line-color': '#3498db', 'width': 3 } },
 
+      { selector: 'node:selected', style: { 'border-color': '#FF0000', 'border-width': 3 } },
+
+      { selector: 'node[invisible = "true"]',
+        style: {'opacity': 0, 'width': 0, 'height': 0 }
+      },
+  
       { selector: 'node[image_id]',
         style: {
           'background-image': (ele) => `/api/images/${ele.data('image_id')}`,
           'background-fit': 'cover',
           'background-clip': 'node',
-          'shape': 'rectangle', 
+          'shape': 'rectangle',
           'width': 40, 'height': 40
         }
-      }, 
+      },
       { selector: 'node[ghost = "true"]',
-        style: { 
+        style: {
           'opacity': 0.35,
           'border-style': 'dashed',
           'border-color': '#7f8c8d',
           'background-color': '#95a5a6'
         }
-      }, 
+      },
       { selector: 'edge[cross = "true"]',
         style: {
           'line-style': 'dashed',
           'opacity': 0.55
         }
-      }, 
-      { selector: 'edge:selected', 
-        style: { 
-          'line-color': '#3498db', 
-          'width': 3 
-        } }
+      }
     ];
   }
 
