@@ -1,15 +1,74 @@
+
 (function (global) {
+  const RETRY_MAX = 4;
+  const RETRY_BASE_MS = 250;
+
+  async function delay(ms) { return new Promise(res => setTimeout(res, ms)); }
+
   async function fetchJson(path, init = {}) {
-    const res = await Auth.apiFetch(path, init);
-    if (!res.ok) {
-      const msg = await safeMsg(res);
-      throw new Error(msg || ('Error HTTP ' + res.status));
+    let attempt = 0;
+    let lastErr = null;
+    while (attempt <= RETRY_MAX) {
+      try {
+        const res = await Auth.apiFetch(path, init);
+        if (!res.ok) {
+          if (res.status === 429 || res.status === 503) {
+            lastErr = await safeMsg(res) || `HTTP ${res.status}`;
+            const wait = RETRY_BASE_MS * Math.pow(2, attempt);
+            await delay(wait + Math.floor(Math.random() * 80));
+            attempt++;
+            continue;
+          }
+          const msg = await safeMsg(res);
+          throw new Error(msg || ('Error HTTP ' + res.status));
+        }
+        return res.json();
+      } catch (err) {
+        lastErr = err;
+        if (attempt < RETRY_MAX) {
+          const wait = RETRY_BASE_MS * Math.pow(2, attempt);
+          await delay(wait + Math.floor(Math.random() * 80));
+          attempt++;
+          continue;
+        }
+        throw (lastErr instanceof Error) ? lastErr : new Error(String(lastErr));
+      }
     }
-    return res.json();
+    throw new Error(lastErr && lastErr.message ? lastErr.message : 'Error en fetchJson');
   }
 
   async function safeMsg(res) {
     try { const j = await res.json(); return j && (j.error || j.message); } catch (_e) { return ''; }
+  }
+
+  const _portsCache = new Map(); // deviceId -> { ts, data }
+  const _portsInflight = new Map(); // deviceId -> Promise
+  const PORTS_TTL_MS = 15 * 1000; // 15s cache (ajustable)
+
+  async function getPorts(deviceId) {
+    if (!deviceId) return [];
+    const key = String(deviceId);
+
+    if (_portsInflight.has(key)) return _portsInflight.get(key);
+
+    const cached = _portsCache.get(key);
+    if (cached && (Date.now() - cached.ts) < PORTS_TTL_MS) {
+      return cached.data;
+    }
+
+    const p = (async () => {
+      try {
+        const json = await fetchJson('/devices/' + encodeURIComponent(deviceId) + '/ports');
+        const data = json.data || [];
+        _portsCache.set(key, { ts: Date.now(), data });
+        return data;
+      } finally {
+        _portsInflight.delete(key);
+      }
+    })();
+
+    _portsInflight.set(key, p);
+    return p;
   }
 
   async function getDevices(networkId) {
@@ -67,10 +126,7 @@
     if (!res.ok) throw new Error('Error creando conexión');
     return res.json();
   }
-  async function getPorts(deviceId) {
-    const data = await fetchJson('/devices/' + encodeURIComponent(deviceId) + '/ports');
-    return data.data || [];
-  }
+
   async function upsertPorts(deviceId, ports) {
     const data = await fetchJson('/devices/' + encodeURIComponent(deviceId) + '/ports', {
       method: 'PATCH',
@@ -79,6 +135,7 @@
     });
     return data.data || [];
   }
+
   async function updateConnection(id, data) {
     const res = await Auth.apiFetch(`/connections/${encodeURIComponent(id)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
     if (!res.ok) throw new Error('Error actualizando conexión');
@@ -98,7 +155,6 @@
     const data = await fetchJson('/sites?network_id=' + encodeURIComponent(networkId));
     return data.data || [];
   }
-
 
   global.API = { getDevices, getConnections, getGraph, 
     createDevice, updateDevice, deleteDevice, 

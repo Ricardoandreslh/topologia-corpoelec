@@ -590,6 +590,216 @@
     if (tip) tip.remove();
   }
 
+  function computeConvexHull(points) {
+    // points: array de {x,y}
+    if (!points || points.length <= 2) return points.slice();
+    const pts = points.slice().sort((a,b) => a.x === b.x ? a.y - b.y : a.x - b.x);
+    function cross(o, a, b) { return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x); }
+    const lower = [];
+    for (let p of pts) {
+      while (lower.length >= 2 && cross(lower[lower.length-2], lower[lower.length-1], p) <= 0) lower.pop();
+      lower.push(p);
+    }
+    const upper = [];
+    for (let i = pts.length - 1; i >= 0; i--) {
+      const p = pts[i];
+      while (upper.length >= 2 && cross(upper[upper.length-2], upper[upper.length-1], p) <= 0) upper.pop();
+      upper.push(p);
+    }
+    upper.pop();
+    lower.pop();
+    return lower.concat(upper);
+  }
+  
+  // --- UTIL: punto dentro de polígono (ray-casting) ---
+  function pointInPolygon(pt, poly) {
+    if (!poly || poly.length < 3) return false;
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const xi = poly[i].x, yi = poly[i].y;
+      const xj = poly[j].x, yj = poly[j].y;
+      const intersect = ((yi > pt.y) !== (yj > pt.y)) &&
+        (pt.x < (xj - xi) * (pt.y - yi) / (yj - yi + 0.0000001) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+  
+  // --- Dibuja overlays SVG de VLANs dentro del contenedor del canvas ---
+  function drawVlanHulls(cy) {
+    try {
+      // limpiar overlay previo
+      const container = cy.container();
+      let overlay = container.querySelector('.vlan-hull-overlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.className = 'vlan-hull-overlay';
+        overlay.style.position = 'absolute';
+        overlay.style.left = '0';
+        overlay.style.top = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.pointerEvents = 'none';
+        overlay.style.zIndex = 1; // detrás de nodos (cy canvas es z-index: auto)
+        container.appendChild(overlay);
+      }
+      // crear SVG
+      overlay.innerHTML = `<svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"></svg>`;
+      const svg = overlay.querySelector('svg');
+  
+      // Agrupar nodos por VLAN (leer edges)
+      const edges = cy.edges().toArray();
+      const vlanMap = new Map(); // vlanId -> Set(nodeIds)
+      edges.forEach(e => {
+        const ev = e.data('vlan');
+        if (!ev) return;
+        const arr = Array.isArray(ev) ? ev : [ev];
+        arr.forEach(v => {
+          try {
+            const key = String(v);
+            if (!vlanMap.has(key)) vlanMap.set(key, new Set());
+            vlanMap.get(key).add(String(e.data('source')));
+            vlanMap.get(key).add(String(e.data('target')));
+          } catch (err) {}
+        });
+      });
+  
+      // Por cada VLAN, calcular hull y dibujar
+      let idx = 0;
+      for (const [vlanId, nodeSet] of vlanMap.entries()) {
+        const pts = [];
+        nodeSet.forEach(id => {
+          const node = cy.getElementById(String(id));
+          if (node && node.isNode()) {
+            const p = node.renderedPosition ? node.renderedPosition() : node.position();
+            pts.push({ x: p.x, y: p.y });
+          }
+        });
+        if (pts.length < 2) continue;
+        const hull = computeConvexHull(pts);
+        if (!hull || hull.length < 3) {
+          // dibujar rectángulo mínimo alrededor si solo 2 puntos
+          const xs = pts.map(p => p.x); const ys = pts.map(p => p.y);
+          const minx = Math.min(...xs) - 24, miny = Math.min(...ys) - 24, maxx = Math.max(...xs) + 24, maxy = Math.max(...ys) + 24;
+          const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+          const hue = (Number(vlanId) * 37) % 360;
+          rect.setAttribute('x', minx);
+          rect.setAttribute('y', miny);
+          rect.setAttribute('width', Math.max(40, maxx - minx));
+          rect.setAttribute('height', Math.max(40, maxy - miny));
+          rect.setAttribute('rx', 12);
+          rect.setAttribute('ry', 12);
+          rect.setAttribute('fill', `hsla(${hue},70%,55%,0.06)`);
+          rect.setAttribute('stroke', `hsla(${hue},70%,45%,0.9)`);
+          rect.setAttribute('stroke-dasharray', '6,6');
+          rect.setAttribute('stroke-width', '1');
+          svg.appendChild(rect);
+        } else {
+          const path = hull.map(p => `${p.x},${p.y}`).join(' ');
+          const poly = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+          const hue = (Number(vlanId) * 37) % 360;
+          poly.setAttribute('points', path);
+          poly.setAttribute('fill', `hsla(${hue},70%,55%,0.06)`);
+          poly.setAttribute('stroke', `hsla(${hue},70%,45%,0.9)`);
+          poly.setAttribute('stroke-dasharray', '6,6');
+          poly.setAttribute('stroke-width', '1');
+          svg.appendChild(poly);
+        }
+  
+        // Etiqueta VLAN (top-left de hull bounding box)
+        const xs2 = pts.map(p => p.x); const ys2 = pts.map(p => p.y);
+        const minx2 = Math.min(...xs2); const miny2 = Math.min(...ys2);
+        const labelG = document.createElementNS('http://www.w3.org/2000/svg','g');
+        const labelBg = document.createElementNS('http://www.w3.org/2000/svg','rect');
+        const labelText = document.createElementNS('http://www.w3.org/2000/svg','text');
+        labelText.textContent = `VLAN ${vlanId}`;
+        labelText.setAttribute('x', minx2 + 8);
+        labelText.setAttribute('y', miny2 - 8);
+        labelText.setAttribute('fill', '#222');
+        labelText.setAttribute('font-size', '12');
+        labelText.setAttribute('font-weight', '600');
+        labelText.setAttribute('text-anchor', 'start');
+        const bboxX = minx2 + 4, bboxY = miny2 - 24;
+        labelBg.setAttribute('x', bboxX);
+        labelBg.setAttribute('y', bboxY);
+        labelBg.setAttribute('width', Math.max(50, 8 * String(vlanId).length + 30));
+        labelBg.setAttribute('height', 20);
+        labelBg.setAttribute('rx', 8);
+        labelBg.setAttribute('fill', 'white');
+        labelBg.setAttribute('fill-opacity', '0.88');
+        labelBg.setAttribute('stroke', '#ddd');
+        labelBg.setAttribute('stroke-width', '1');
+        labelG.appendChild(labelBg);
+        labelG.appendChild(labelText);
+        svg.appendChild(labelG);
+        idx++;
+      }
+    } catch (err) {
+      console.warn('drawVlanHulls error', err);
+    }
+  }
+  
+  // --- Aplazar nodos que queden dentro de hulls pero no pertenecen a la VLAN ---
+  function separateIntrudingNodes(cy) {
+    try {
+      const edges = cy.edges().toArray();
+      const vlanMap = new Map(); // vlanId -> Set(nodeIds)
+      edges.forEach(e => {
+        const ev = e.data('vlan');
+        if (!ev) return;
+        const arr = Array.isArray(ev) ? ev : [ev];
+        arr.forEach(v => {
+          const key = String(v);
+          if (!vlanMap.has(key)) vlanMap.set(key, new Set());
+          vlanMap.get(key).add(String(e.data('source')));
+          vlanMap.get(key).add(String(e.data('target')));
+        });
+      });
+  
+      // Para cada vlan: construir hull y para cada nodo no perteneciente, si está dentro => empujar hacia afuera
+      for (const [vlanId, nodeSet] of vlanMap.entries()) {
+        const pts = [];
+        nodeSet.forEach(id => {
+          const node = cy.getElementById(String(id));
+          if (node && node.isNode()) { const p = node.renderedPosition ? node.renderedPosition() : node.position(); pts.push({ x: p.x, y: p.y }); }
+        });
+        if (pts.length < 3) continue;
+        const hull = computeConvexHull(pts);
+        if (!hull || hull.length < 3) continue;
+  
+        // centroid approx
+        const centroid = hull.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
+        centroid.x /= hull.length; centroid.y /= hull.length;
+  
+        // verificar nodos que no pertenecen al set
+        cy.nodes().forEach(n => {
+          const nid = String(n.id());
+          if (nodeSet.has(nid)) return; // pertenece
+          const pos = n.renderedPosition ? n.renderedPosition() : n.position();
+          if (pointInPolygon({ x: pos.x, y: pos.y }, hull)) {
+            // vector desde centroid al nodo, mover fuerawards
+            const vx = pos.x - centroid.x;
+            const vy = pos.y - centroid.y;
+            const mag = Math.sqrt(vx*vx + vy*vy) || 0.0001;
+            const normX = vx / mag; const normY = vy / mag;
+            const step = 36; // pixels a empujar (ajustable)
+            const newX = pos.x + normX * step;
+            const newY = pos.y + normY * step;
+            // aplicar nueva posición (rendered)
+            try {
+              n.position({ x: newX, y: newY });
+            } catch (e) {
+              // fallback: use scratch + animate if needed
+              console.warn('Error moviendo nodo', nid, e);
+            }
+          }
+        });
+      }
+    } catch (err) {
+      console.warn('separateIntrudingNodes error', err);
+    }
+  }
+
   function renderGraph(graph, opts = {}) {  
     const containerId = opts.containerId || 'canvas';
     const viewType = opts.viewType || 'all';
@@ -606,7 +816,6 @@
     const layoutInstance = cy.layout(layout);
     
     const nodesWithoutPos = [];
-    // construir lista de ids a persistir (solo dispositivos, no vlan-group)
     elements.nodes.forEach(n => {
       if (n.data && !n.data._hasPos && n.data.type !== 'vlan-group') {
         nodesWithoutPos.push(String(n.data.id));
@@ -615,38 +824,50 @@
 
     layoutInstance.run();
 
-    // al terminar layout: persistir posiciones de aquellos que no tenían posición
-    layoutInstance.promiseOn('layoutstop').then(async () => {
+    const onLayoutStop = async () => {
       try {
-        // guardar por nodo en background (no bloquear render)
+        // persistir posiciones
         const siteId = opts.siteId;
         const posKey = siteId ? `pos_site_${siteId}` : 'pos';
-        // iterar elementos actuales en el cy para extraer posiciones
-        nodesWithoutPos.forEach(async (nid) => {
+        for (const nid of nodesWithoutPos) {
           try {
             const node = cy.getElementById(nid);
-            if (!node || !node.isNode()) return;
+            if (!node || !node.isNode()) continue;
             const pos = node.position();
             const payload = { metadata: { [posKey]: { x: pos.x, y: pos.y } } };
-            // actualizar dispositivo (API lo mergea en backend)
-            await API.updateDevice(nid, payload);
-            // marcar _hasPos para evitar futuros guardados innecesarios
+            // no await en serie para no bloquear demasiado pero manejar errores
+            API.updateDevice(nid, payload).catch(e => console.warn('Error guardando posición nodo', nid, e));
             node.data('_hasPos', true);
           } catch (err) {
-            console.warn('Error guardando posición inicial nodo', nid, err);
+            console.warn('persist position error', err);
           }
-        });
+        }
+
+        // Separar nodos intrusos entre VLANs y redibujar hull overlays
+        separateIntrudingNodes(cy);
+        // pequeña espera para que posiciones aplicadas tomen efecto en el canvas render
+        setTimeout(() => {
+          drawVlanHulls(cy);
+        }, 80);
+
       } catch (err) {
-        console.warn('Error en persistencia de posiciones iniciales', err);
+        console.warn('layoutstop handler error', err);
       }
-    }).catch(() => {});
-    
+    };
+
+    if (typeof layoutInstance.promiseOn === 'function') {
+      layoutInstance.promiseOn('layoutstop').then(onLayoutStop).catch(() => {});
+    } else {
+      cy.one('layoutstop', onLayoutStop);
+    }
+
+    // al final seguir con el ajuste de zoom/fit como antes
     setTimeout(() => {
       cy.fit(cy.elements(), 60);
-
       if (cy.zoom() > 2) cy.zoom(2);
       if (cy.zoom() < 0.5) cy.zoom(0.5);
     }, 100);
+
   
     cy.scratch('_graphMeta', { 
       network_id: graph.network_id, 
