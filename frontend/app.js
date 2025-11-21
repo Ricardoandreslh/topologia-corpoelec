@@ -74,13 +74,11 @@
     const searchInput = document.getElementById('device-search');
     const exportBtn = document.getElementById('export-excel');
     const exportPngBtn = document.getElementById('export-png');
-    const exportSvgBtn = document.getElementById('export-svg');
 
     if (exportBtn) {
       exportBtn.addEventListener('click', handleExportExcel);
     }
     if (exportPngBtn) exportPngBtn.addEventListener('click', handleExportPNG);
-    if (exportSvgBtn) exportSvgBtn.addEventListener('click', handleExportSVG);
 
     if (zoomInBtn) {
       zoomInBtn.addEventListener('click', handleZoomIn);
@@ -278,16 +276,7 @@
     }
   }
 
-  async function handleExportSVG() {
-    try {
-      const containerId = getActiveContainerId();
-      await Canvas.exportSVG(containerId);
-      setStatus('SVG exportado', false);
-    } catch (err) {
-      console.error('Error exportando SVG', err);
-      setStatus('Error exportando SVG: ' + (err?.message || 'desconocido'), true);
-    }
-  }
+
 
   function bindCRUDButtons() {
     const addDeviceBtn = document.getElementById('add-device');
@@ -1017,8 +1006,35 @@
   }
   
   function handleSearch(event) {
+    // event puede ser evento input o llamado manual con { target: { value } }
     const containerId = getActiveContainerId();
-    const query = event.target.value;
+    const raw = (event && event.target && event.target.value !== undefined) ? event.target.value : (typeof event === 'string' ? event : '');
+    const query = String(raw || '').trim();
+  
+    // Si está vacío: limpiar filtro (recargar grafo sin filtro)
+    if (!query) {
+      // recargar grafo sin filtro
+      GRAPH_CACHE.clear();
+      loadGraphFor(getCurrentView(), getCurrentSiteId(), { vlanFilter: null });
+      // además quitar highlights si había
+      if (window.Canvas?.searchNodes) window.Canvas.searchNodes(containerId, '');
+      return;
+    }
+  
+    // Detectar si parece VLAN(s): solo dígitos, comas y espacios
+    const vlanCandidate = query.replace(/\s+/g, '');
+    const isVlanLike = /^[0-9]+(,[0-9]+)*$/.test(vlanCandidate);
+  
+    if (isVlanLike) {
+      // convertir a array de strings
+      const vlans = vlanCandidate.split(',').map(s => s.trim()).filter(Boolean);
+      GRAPH_CACHE.clear();
+      // recargar con filtro VLAN (no hace highlight, muestra solo nodos/enlaces que participan)
+      loadGraphFor(getCurrentView(), getCurrentSiteId(), { vlanFilter: vlans });
+      return;
+    }
+  
+    // Si no es VLAN, usar búsqueda de texto (highlight) en canvas
     if (window.Canvas?.searchNodes) {
       window.Canvas.searchNodes(containerId, query);
     }
@@ -1168,6 +1184,17 @@ function projectGraphForView(full, view, opts = {}) {
 
   const primaryNodes = nodes.filter(n => nodeCategory(n.type) === desired);
   const primaryIds = new Set(primaryNodes.map(n => String(n.id)));
+
+  // Construir viewEdges (filtrado por tipo de vista)
+  let viewEdges = edges
+    .filter(e => primaryIds.has(String(e.source)) || primaryIds.has(String(e.target)))
+    .map(e => {
+      const sIn = primaryIds.has(String(e.source));
+      const tIn = primaryIds.has(String(e.target));
+      return { ...e, cross: (sIn && !tIn) || (!sIn && tIn) };
+    });
+
+  // FILTRADO por VLAN si opts.vlanFilter existe (array de strings o numbers)
   if (opts && opts.vlanFilter && Array.isArray(opts.vlanFilter) && opts.vlanFilter.length) {
     const wanted = new Set(opts.vlanFilter.map(x => String(x)));
     viewEdges = viewEdges.filter(e => {
@@ -1176,13 +1203,7 @@ function projectGraphForView(full, view, opts = {}) {
       return arr.some(v => wanted.has(v));
     });
   }
-  let viewEdges = edges  
-    .filter(e => primaryIds.has(String(e.source)) || primaryIds.has(String(e.target)))
-    .map(e => {
-      const sIn = primaryIds.has(String(e.source));
-      const tIn = primaryIds.has(String(e.target));
-      return { ...e, cross: (sIn && !tIn) || (!sIn && tIn) }; 
-    });
+
   if (opts.showInterSite === false) {
     viewEdges = viewEdges.filter(e => e.cross !== true);
   }
@@ -1200,7 +1221,7 @@ function projectGraphForView(full, view, opts = {}) {
     kind: desired,
     nodes: viewNodes,
     edges: viewEdges,
-    counts: { nodes: viewNodes.length, edges: viewEdges.length } 
+    counts: { nodes: viewNodes.length, edges: viewEdges.length }
   };
 }
 

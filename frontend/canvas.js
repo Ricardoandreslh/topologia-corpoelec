@@ -248,7 +248,6 @@
         'display': 'none'
       }
     },
-    // además, para distinguir mejor las edges con VLAN, podrías añadir:
     { selector: 'edge[label]',
       style: {
         'label': 'data(label)',
@@ -262,10 +261,9 @@
       { selector: 'node:selected', style: { 'border-color': '#e74c3c', 'border-width': 3 } },
       { selector: 'node:hover',    style: { 'cursor': 'pointer' } },
       {
-        selector: 'edge',
+        selector: 'edge[vlanStr]',
         style: {
           'width': 2,
-          // Mostrar solo el campo data(vlanStr) como etiqueta-badge
           'label': 'data(vlanStr)',
           'font-size': 10,
           'text-background-color': '#ffffff',
@@ -280,7 +278,6 @@
           'text-rotation': 'autorotate',
           'curve-style': 'bezier',
           'target-arrow-shape': 'none',
-          // color de línea según primera VLAN si existe (mantengo la lógica anterior)
           'line-color': (ele) => {
             try {
               const key = ele.data && ele.data('vlanKey');
@@ -291,7 +288,27 @@
               return `hsl(${hue}, 70%, ${theme === 'dark' ? '70%' : '40%'})`;
             } catch (e) { return (theme === 'dark' ? '#bdc3c7' : '#95a5a6'); }
           },
-          'color': theme === 'dark' ? '#0b0b0b' : '#0b0b0b', // color del texto dentro del badge (oscuro sobre bg blanco)
+          'color': theme === 'dark' ? '#0b0b0b' : '#0b0b0b',
+          'text-margin-y': -6
+        }
+      },
+  
+      // estilo para edges SIN vlanStr: mostrar tipo de enlace (link_type) en la etiqueta
+      {
+        selector: 'edge:not([vlanStr])',
+        style: {
+          'width': 2,
+          'label': 'data(link_type)',
+          'font-size': 10,
+          'text-background-color': 'transparent',
+          'text-background-opacity': 0,
+          'curve-style': 'bezier',
+          'target-arrow-shape': 'none',
+          'line-color': (ele) => {
+            // fallback color para edges sin VLAN
+            return (theme === 'dark' ? '#95a5a6' : '#95a5a6');
+          },
+          'color': theme === 'dark' ? '#ffffff' : '#2c3e50',
           'text-margin-y': -6
         }
       },
@@ -737,23 +754,6 @@
     return Promise.resolve();
   }
 
-  // Exportar SVG del canvas activo
-  function exportSVG(containerId = 'canvas-wifi', filename = null) {
-    const cy = instances.get(containerId);
-    if (!cy) return Promise.reject(new Error('Canvas no encontrado'));
-    const svgStr = cy.svg({ full: true, scale: 1 });
-    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
-    const name = filename || `topologia_${containerId}_${new Date().toISOString().replace(/[:.]/g,'-')}.svg`;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
-    return Promise.resolve();
-  }
   global.Canvas = { 
     renderGraph, 
     fit, 
@@ -765,7 +765,7 @@
     searchNodes,
     updateTheme,
     nodeCategory,
-    exportPNG,
-    exportSVG
+    exportPNG
+    
   };
 })(window);
