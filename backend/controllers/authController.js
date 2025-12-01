@@ -11,21 +11,21 @@ const {
   LOCK_MIN
 } = require('../models/authSecurity');
 
-/**
- * POST /api/auth/login
- */
+const Sessions = require('../models/refreshTokens');
+const crypto = require('crypto');
+const { randomUUID } = require('crypto');
+
 async function login(req, res) {
   const { username, password } = req.body || {};
   const ip = req.ip;
+  const userAgent = req.get('user-agent') || null;
 
   if (!username || !password) {
     return res.status(400).json({ error: 'username y password son requeridos' });
   }
 
-  // Buscar usuario (puede ser null)
   const user = await Users.findByUsername(username);
 
-  // Si existe, revisar lock activo
   if (user) {
     const lock = await getActiveLock(user.id);
     if (lock) {
@@ -35,14 +35,12 @@ async function login(req, res) {
     }
   }
 
-  // Validar credenciales
   let success = false;
   if (user && user.status === 'active') {
     const ok = await Users.verifyPassword(password, user.password_hash);
     success = !!ok;
   }
 
-  // Registrar intento
   await recordAttempt({
     user_id: user ? user.id : null,
     username,
@@ -50,7 +48,6 @@ async function login(req, res) {
     success
   });
 
-  // Si falla: contar recientes y bloquear si supera umbral
   if (!success) {
     if (user) {
       const fails = await countRecentFailures({ user_id: user.id });
@@ -59,17 +56,40 @@ async function login(req, res) {
         return res.status(423).json({ error: `Demasiados intentos fallidos. Cuenta bloqueada por ${LOCK_MIN} min.` });
       }
     }
-    // Mensaje genérico para no filtrar existencia de usuario
     return res.status(400).json({ error: 'Usuario/clave inválidos' });
   }
 
-  // Éxito: limpiar locks pendientes y emitir tokens
   await clearLocks(user.id);
   await Users.updateLastLogin(user.id);
   const payload = { id: user.id, username: user.username, role: user.role, status: user.status };
 
   const accessToken = signAccessToken(payload);
-  const refreshToken = signRefreshToken({ id: user.id });
+
+  const jti = randomUUID();
+  const refreshToken = signRefreshToken({ id: user.id, jti });
+
+  let decoded;
+  try {
+    decoded = verifyRefresh(refreshToken);
+  } catch (e) {
+    console.error('Error verificando refresh token firmado:', e);
+    return res.status(500).json({ error: 'Error generando tokens' });
+  }
+  const expiresAt = decoded && decoded.exp ? new Date(decoded.exp * 1000) : null;
+
+  try {
+    const refreshHash = Sessions.hashToken(refreshToken);
+    await Sessions.createSession({
+      user_id: user.id,
+      jti,
+      refresh_hash: refreshHash,
+      ip,
+      user_agent: userAgent,
+      expires_at: expiresAt
+    });
+  } catch (err) {
+    console.error('Error guardando sesión refresh token:', err);
+  }
 
   return res.json({
     accessToken,
@@ -78,35 +98,121 @@ async function login(req, res) {
   });
 }
 
-/**
- * GET /api/auth/me
- */
 async function me(req, res) {
   res.json({ user: req.user });
 }
 
-/**
- * POST /api/auth/refresh
- */
 async function refresh(req, res) {
   const { refreshToken } = req.body || {};
   if (!refreshToken) return res.status(400).json({ error: 'refreshToken requerido' });
+
+  let decoded;
   try {
-    const decoded = verifyRefresh(refreshToken);
-    const user = await Users.findById(decoded.id);
+    decoded = verifyRefresh(refreshToken);
+  } catch (e) {
+    return res.status(401).json({ error: 'refreshToken inválido o expirado' });
+  }
+
+  const userId = decoded.id;
+  const jti = decoded.jti;
+  if (!userId || !jti) return res.status(401).json({ error: 'refreshToken inválido' });
+
+  try {
+    const session = await Sessions.getSessionByJti(jti);
+    if (!session) return res.status(401).json({ error: 'Refresh token revocado o no encontrado' });
+
+    const hash = Sessions.hashToken(refreshToken);
+    if (hash !== session.refresh_hash) return res.status(401).json({ error: 'Refresh token inválido' });
+
+    await Sessions.deleteSessionByJti(jti);
+
+    const newJti = randomUUID();
+    const newRefreshToken = signRefreshToken({ id: userId, jti: newJti });
+    const newDecoded = verifyRefresh(newRefreshToken);
+    const expiresAt = newDecoded && newDecoded.exp ? new Date(newDecoded.exp * 1000) : null;
+
+    try {
+      await Sessions.createSession({
+        user_id: userId,
+        jti: newJti,
+        refresh_hash: Sessions.hashToken(newRefreshToken),
+        ip: req.ip,
+        user_agent: req.get('user-agent') || null,
+        expires_at: expiresAt
+      });
+    } catch (err) {
+      console.error('Error creando nueva sesión en refresh:', err);
+    }
+
+    const user = await Users.findById(userId);
     if (!user || user.status !== 'active') {
       return res.status(403).json({ error: 'Usuario inválido o deshabilitado' });
     }
     const payload = { id: user.id, username: user.username, role: user.role, status: user.status };
     const accessToken = signAccessToken(payload);
-    return res.json({ accessToken });
-  } catch (_e) {
-    return res.status(401).json({ error: 'refreshToken inválido o expirado' });
+
+    return res.json({ accessToken, refreshToken: newRefreshToken });
+  } catch (err) {
+    console.error('auth.refresh error', err);
+    return res.status(500).json({ error: 'Error interno' });
   }
 }
 
-async function logout(_req, res) {
-  return res.json({ ok: true });
+async function logout(req, res) {
+  try {
+    const body = req.body || {};
+    if (body.refreshToken) {
+      try {
+        const decoded = verifyRefresh(body.refreshToken);
+        if (decoded && decoded.jti) {
+          await Sessions.deleteSessionByJti(decoded.jti);
+        }
+      } catch (_e) {
+      }
+      return res.json({ ok: true });
+    }
+
+    if (req.user && (body.all === true || !body.refreshToken)) {
+      await Sessions.deleteSessionsByUser(req.user.id);
+      return res.json({ ok: true });
+    }
+
+    return res.status(400).json({ error: 'refreshToken requerido o autenticar para revocar sesiones' });
+  } catch (err) {
+    console.error('auth.logout error', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
 }
 
-module.exports = { login, me, refresh, logout };
+async function listSessions(req, res) {
+  try {
+    if (!req.user) return res.status(401).json({ error: 'No autenticado' });
+    const rows = await Sessions.listSessionsByUser(req.user.id);
+    return res.json({ data: rows });
+  } catch (err) {
+    console.error('auth.listSessions error', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+}
+
+async function revokeSession(req, res) {
+  try {
+    if (!req.user) return res.status(401).json({ error: 'No autenticado' });
+    const id = req.params.id;
+    if (!id) return res.status(400).json({ error: 'id requerido' });
+    const sess = await Sessions.getSessionById(id);
+    if (!sess) return res.status(404).json({ error: 'No encontrada' });
+
+    const isOwner = String(sess.user_id) === String(req.user.id);
+    const isAdmin = req.user.role === 'admin';
+    if (!isOwner && !isAdmin) return res.status(403).json({ error: 'No autorizado' });
+
+    await Sessions.deleteSessionById(id);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('auth.revokeSession error', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+}
+
+module.exports = { login, me, refresh, logout, listSessions, revokeSession };
