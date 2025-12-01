@@ -1,4 +1,5 @@
 const { verifyAccess } = require('../utils/jwt');
+const Blacklist = require('../models/blacklistedTokens');
 
 const ROLES = Object.freeze({
   ADMIN: 'admin',
@@ -27,12 +28,20 @@ function jsonError(res, status, message, code) {
   return res.status(status).json({ error: message, code });
 }
 
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   try {
     const token = getTokenFromHeader(req);
     if (!token) return jsonError(res, 401, 'Token requerido', 'AUTH_REQUIRED');
 
     const payload = verifyAccess(token);
+
+    try {
+      const isBlack = await Blacklist.isBlacklisted(token);
+      if (isBlack) return jsonError(res, 401, 'Token revocado', 'TOKEN_REVOKED');
+    } catch (e) {
+      console.warn('Blacklist check failed', e);
+    }
+
     const role = String(payload.role || '').toLowerCase();
     const status = String(payload.status || 'active').toLowerCase();
 

@@ -1,6 +1,7 @@
 const Connections = require('../models/connections');
 const Devices = require('../models/devices');
 const { query } = require('../db');
+const Audit = require('../models/auditLogs');
 
 async function list(req, res) {
   try {
@@ -34,7 +35,6 @@ async function create(req, res) {
       return res.status(400).json({ error: 'network_id, from_device_id y to_device_id son requeridos' });
     }
 
-    // Validar existencia
     const fromDev = await Devices.getDeviceById(body.from_device_id);
     const toDev = await Devices.getDeviceById(body.to_device_id);
     if (!fromDev || !toDev) return res.status(400).json({ error: 'Dispositivo origen o destino no encontrado' });
@@ -55,7 +55,6 @@ async function create(req, res) {
       vlan: body.vlan === undefined ? null : body.vlan
     };
 
-    // Validar que puertos pertenezcan a dispositivos correctos
     if (payload.a_port_id) {
       const aPort = await query('SELECT device_id FROM ports WHERE id=?', [payload.a_port_id]);
       if (!aPort[0] || aPort[0].device_id != payload.from_device_id) return res.status(400).json({ error: 'Puerto A no pertenece al dispositivo origen' });
@@ -65,7 +64,6 @@ async function create(req, res) {
       if (!bPort[0] || bPort[0].device_id != payload.to_device_id) return res.status(400).json({ error: 'Puerto B no pertenece al dispositivo destino' });
     }
 
-    // Validar VLAN(s) si vienen (puede ser número o array)
     if (payload.vlan !== null) {
       if (Array.isArray(payload.vlan)) {
         if (payload.vlan.length === 0) payload.vlan = null;
@@ -86,6 +84,19 @@ async function create(req, res) {
     }
 
     const result = await Connections.createConnection(payload);
+
+    try {
+      await Audit.createAudit({
+        user_id: req.user ? req.user.id : null,
+        action: 'create',
+        resource_type: 'connection',
+        resource_id: result.id,
+        payload: payload
+      });
+    } catch (e) {
+      console.warn('Audit log failed (connection.create):', e);
+    }
+
     return res.status(201).json({ id: result.id });
   } catch (err) {
     console.error('connections.create error', err);
@@ -153,6 +164,19 @@ async function update(req, res) {
     }
 
     await Connections.updateConnection(id, fields);
+
+    try {
+      await Audit.createAudit({
+        user_id: req.user ? req.user.id : null,
+        action: 'update',
+        resource_type: 'connection',
+        resource_id: id,
+        payload: fields
+      });
+    } catch (e) {
+      console.warn('Audit log failed (connection.update):', e);
+    }
+
     return res.json({ ok: true });
   } catch (err) {
     console.error('connections.update error', err);
@@ -168,6 +192,19 @@ async function remove(req, res) {
     const id = req.params.id;
     if (!id) return res.status(400).json({ error: 'id requerido' });
     await Connections.deleteConnection(id);
+
+    try {
+      await Audit.createAudit({
+        user_id: req.user ? req.user.id : null,
+        action: 'delete',
+        resource_type: 'connection',
+        resource_id: id,
+        payload: null
+      });
+    } catch (e) {
+      console.warn('Audit log failed (connection.delete):', e);
+    }
+
     return res.json({ ok: true });
   } catch (err) {
     console.error('connections.delete error', err);

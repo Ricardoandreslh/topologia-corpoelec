@@ -1,5 +1,5 @@
 const { Users } = require('../models');
-const { signAccessToken, signRefreshToken, verifyRefresh } = require('../utils/jwt');
+const { signAccessToken, signRefreshToken, verifyRefresh, verifyAccess } = require('../utils/jwt');
 const {
   recordAttempt,
   countRecentFailures,
@@ -12,90 +12,102 @@ const {
 } = require('../models/authSecurity');
 
 const Sessions = require('../models/refreshTokens');
+const Blacklist = require('../models/blacklistedTokens');
 const crypto = require('crypto');
-const { randomUUID } = require('crypto');
+
+function genJti() {
+  if (typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return crypto.randomBytes(16).toString('hex');
+}
 
 async function login(req, res) {
-  const { username, password } = req.body || {};
-  const ip = req.ip;
-  const userAgent = req.get('user-agent') || null;
+  try {
+    const { username, password } = req.body || {};
+    const ip = req.ip;
+    const userAgent = req.get('user-agent') || null;
 
-  if (!username || !password) {
-    return res.status(400).json({ error: 'username y password son requeridos' });
-  }
-
-  const user = await Users.findByUsername(username);
-
-  if (user) {
-    const lock = await getActiveLock(user.id);
-    if (lock) {
-      const msLeft = new Date(lock.until).getTime() - Date.now();
-      const minutesLeft = Math.ceil(msLeft / 60000);
-      return res.status(423).json({ error: `Cuenta bloqueada. Intenta en ~${minutesLeft} min.` });
+    if (!username || !password) {
+      return res.status(400).json({ error: 'username y password son requeridos' });
     }
-  }
 
-  let success = false;
-  if (user && user.status === 'active') {
-    const ok = await Users.verifyPassword(password, user.password_hash);
-    success = !!ok;
-  }
+    const user = await Users.findByUsername(username);
 
-  await recordAttempt({
-    user_id: user ? user.id : null,
-    username,
-    ip,
-    success
-  });
-
-  if (!success) {
     if (user) {
-      const fails = await countRecentFailures({ user_id: user.id });
-      if (fails >= MAX_FAILED) {
-        await lockUser({ user_id: user.id });
-        return res.status(423).json({ error: `Demasiados intentos fallidos. Cuenta bloqueada por ${LOCK_MIN} min.` });
+      const lock = await getActiveLock(user.id);
+      if (lock) {
+        const msLeft = new Date(lock.until).getTime() - Date.now();
+        const minutesLeft = Math.ceil(msLeft / 60000);
+        return res.status(423).json({ error: `Cuenta bloqueada. Intenta en ~${minutesLeft} min.` });
       }
     }
-    return res.status(400).json({ error: 'Usuario/clave inválidos' });
-  }
 
-  await clearLocks(user.id);
-  await Users.updateLastLogin(user.id);
-  const payload = { id: user.id, username: user.username, role: user.role, status: user.status };
+    let success = false;
+    if (user && user.status === 'active') {
+      const ok = await Users.verifyPassword(password, user.password_hash);
+      success = !!ok;
+    }
 
-  const accessToken = signAccessToken(payload);
-
-  const jti = randomUUID();
-  const refreshToken = signRefreshToken({ id: user.id, jti });
-
-  let decoded;
-  try {
-    decoded = verifyRefresh(refreshToken);
-  } catch (e) {
-    console.error('Error verificando refresh token firmado:', e);
-    return res.status(500).json({ error: 'Error generando tokens' });
-  }
-  const expiresAt = decoded && decoded.exp ? new Date(decoded.exp * 1000) : null;
-
-  try {
-    const refreshHash = Sessions.hashToken(refreshToken);
-    await Sessions.createSession({
-      user_id: user.id,
-      jti,
-      refresh_hash: refreshHash,
+    await recordAttempt({
+      user_id: user ? user.id : null,
+      username,
       ip,
-      user_agent: userAgent,
-      expires_at: expiresAt
+      success
+    });
+
+    if (!success) {
+      if (user) {
+        const fails = await countRecentFailures({ user_id: user.id });
+        if (fails >= MAX_FAILED) {
+          await lockUser({ user_id: user.id });
+          return res.status(423).json({ error: `Demasiados intentos fallidos. Cuenta bloqueada por ${LOCK_MIN} min.` });
+        }
+      }
+      return res.status(400).json({ error: 'Usuario/clave inválidos' });
+    }
+
+    await clearLocks(user.id);
+    await Users.updateLastLogin(user.id);
+    const payload = { id: user.id, username: user.username, role: user.role, status: user.status };
+
+    const accessToken = signAccessToken(payload);
+
+    const jti = genJti();
+    const refreshToken = signRefreshToken({ id: user.id, jti });
+
+    let decoded;
+    try {
+      decoded = verifyRefresh(refreshToken);
+    } catch (e) {
+      console.error('Error verificando refresh token firmado:', e);
+      return res.status(500).json({ error: 'Error generando tokens' });
+    }
+    const expiresAt = decoded && decoded.exp ? new Date(decoded.exp * 1000) : null;
+
+    try {
+      const refreshHash = Sessions.hashToken(refreshToken);
+      await Sessions.createSession({
+        user_id: user.id,
+        jti,
+        refresh_hash: refreshHash,
+        ip,
+        user_agent: userAgent,
+        expires_at: expiresAt
+      });
+    } catch (err) {
+      console.error('Error guardando sesión refresh token:', err);
+    }
+
+    return res.json({
+      accessToken,
+      refreshToken,
+      user: { id: user.id, username: user.username, role: user.role }
     });
   } catch (err) {
-    console.error('Error guardando sesión refresh token:', err);
+    console.error('auth.login error', err);
+    return res.status(500).json({ error: 'Error interno' });
   }
-
-  return res.json({
-    accessToken,
-    refreshToken,
-    user: { id: user.id, username: user.username, role: user.role }
-  });
 }
 
 async function me(req, res) {
@@ -103,21 +115,21 @@ async function me(req, res) {
 }
 
 async function refresh(req, res) {
-  const { refreshToken } = req.body || {};
-  if (!refreshToken) return res.status(400).json({ error: 'refreshToken requerido' });
-
-  let decoded;
   try {
-    decoded = verifyRefresh(refreshToken);
-  } catch (e) {
-    return res.status(401).json({ error: 'refreshToken inválido o expirado' });
-  }
+    const { refreshToken } = req.body || {};
+    if (!refreshToken) return res.status(400).json({ error: 'refreshToken requerido' });
 
-  const userId = decoded.id;
-  const jti = decoded.jti;
-  if (!userId || !jti) return res.status(401).json({ error: 'refreshToken inválido' });
+    let decoded;
+    try {
+      decoded = verifyRefresh(refreshToken);
+    } catch (e) {
+      return res.status(401).json({ error: 'refreshToken inválido o expirado' });
+    }
 
-  try {
+    const userId = decoded.id;
+    const jti = decoded.jti;
+    if (!userId || !jti) return res.status(401).json({ error: 'refreshToken inválido' });
+
     const session = await Sessions.getSessionByJti(jti);
     if (!session) return res.status(401).json({ error: 'Refresh token revocado o no encontrado' });
 
@@ -126,7 +138,7 @@ async function refresh(req, res) {
 
     await Sessions.deleteSessionByJti(jti);
 
-    const newJti = randomUUID();
+    const newJti = genJti();
     const newRefreshToken = signRefreshToken({ id: userId, jti: newJti });
     const newDecoded = verifyRefresh(newRefreshToken);
     const expiresAt = newDecoded && newDecoded.exp ? new Date(newDecoded.exp * 1000) : null;
@@ -161,6 +173,26 @@ async function refresh(req, res) {
 async function logout(req, res) {
   try {
     const body = req.body || {};
+
+    try {
+      const authHeader = req.headers && req.headers.authorization;
+      if (authHeader && typeof authHeader === 'string') {
+        const parts = authHeader.split(' ');
+        if (parts.length === 2 && /^Bearer$/i.test(parts[0])) {
+          const accessToken = parts[1];
+          try {
+            const decoded = verifyAccess(accessToken);
+            const exp = decoded && decoded.exp ? new Date(decoded.exp * 1000) : null;
+            const uid = decoded && decoded.id ? decoded.id : (req.user && req.user.id ? req.user.id : null);
+            await Blacklist.addBlacklistedToken({ token: accessToken, user_id: uid, expires_at: exp, reason: 'logout' });
+          } catch (e) {
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error al intentar blacklistear access token en logout:', e);
+    }
+
     if (body.refreshToken) {
       try {
         const decoded = verifyRefresh(body.refreshToken);

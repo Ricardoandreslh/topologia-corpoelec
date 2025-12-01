@@ -1,4 +1,5 @@
 const Devices = require('../models/devices');
+const Audit = require('../models/auditLogs');
 
 function serializeMeta(v) {
   if (v === undefined) return undefined;
@@ -10,7 +11,6 @@ async function list(req, res) {
   try {
     const networkId = req.query.network_id;
     if (!networkId) return res.status(400).json({ error: 'network_id requerido' });
-
     const rows = await Devices.listDevicesByNetwork(networkId);
     return res.json({ data: rows });
   } catch (err) {
@@ -41,7 +41,6 @@ async function create(req, res) {
       return res.status(400).json({ error: 'network_id, name y device_type son requeridos' });
     }
 
-    // Validación para site_id
     if (body.site_id !== null && body.site_id !== undefined) {
       const Sites = require('../models/sites');
       const site = await Sites.getSiteById(body.site_id);
@@ -58,7 +57,7 @@ async function create(req, res) {
       mac_address: body.mac_address || null,
       location: body.location || null,
       image_id: body.image_id || null,
-      site_id: body.site_id || null,  // Añadido
+      site_id: body.site_id || null,
       metadata: serializeMeta(body.metadata) !== null && serializeMeta(body.metadata) !== undefined ? serializeMeta(body.metadata) : null
     };
 
@@ -69,6 +68,19 @@ async function create(req, res) {
         await Ports.createPort({ device_id: result.id, ...p });
       }
     }
+
+    try {
+      await Audit.createAudit({
+        user_id: req.user ? req.user.id : null,
+        action: 'create',
+        resource_type: 'device',
+        resource_id: result.id,
+        payload: payload
+      });
+    } catch (e) {
+      console.warn('Audit log failed (device.create):', e);
+    }
+
     return res.status(201).json({ id: result.id });
   } catch (err) {
     console.error('devices.create error', err);
@@ -82,12 +94,11 @@ async function update(req, res) {
     const body = req.body || {};
     if (!id) return res.status(400).json({ error: 'id requerido' });
 
-    const allowed = ['name', 'device_type', 'ip_address', 'mac_address', 'location', 'image_id', 'site_id', 'metadata'];  // Añadido 'site_id'
+    const allowed = ['name', 'device_type', 'ip_address', 'mac_address', 'location', 'image_id', 'site_id', 'metadata'];
     const fields = {};
     for (const k of allowed) {
       if (body[k] !== undefined) {
         if (k === 'metadata') {
-          // Obtener metadata actual y mergear
           const device = await Devices.getDeviceById(id);
           let currentMeta = {};
           if (device.metadata) {
@@ -97,7 +108,6 @@ async function update(req, res) {
               console.warn('Error parsing existing metadata:', e);
             }
           }
-          // Mergear: si body.metadata tiene pos, actualizarlo; de lo contrario, reemplazar todo
           const newMeta = { ...currentMeta, ...body[k] };
           fields[k] = serializeMeta(newMeta);
         } else if (k === 'site_id') {
@@ -109,7 +119,7 @@ async function update(req, res) {
               return res.status(400).json({ error: 'Sede inválida: no existe o network_id no coincide' });
             }
           }
-          fields[k] = body[k] === '' ? null : body[k];  // Permitir null si es vacío
+          fields[k] = body[k] === '' ? null : body[k];
         } else {
           fields[k] = body[k];
         }
@@ -121,15 +131,27 @@ async function update(req, res) {
     if (!device) return res.status(404).json({ error: 'No encontrado' });
 
     await Devices.updateDevice(id, fields);
+
     if (body.ports && Array.isArray(body.ports)) {
       const Ports = require('../models/ports');
-      await query('DELETE FROM ports WHERE device_id=?', [id]);
-      // Insertar los nuevos puertos
+      await require('../db').query('DELETE FROM ports WHERE device_id=?', [id]);
       for (const p of body.ports) {
         await Ports.createPort({ device_id: id, ...p });
       }
     }
-  
+
+    try {
+      await Audit.createAudit({
+        user_id: req.user ? req.user.id : null,
+        action: 'update',
+        resource_type: 'device',
+        resource_id: id,
+        payload: fields
+      });
+    } catch (e) {
+      console.warn('Audit log failed (device.update):', e);
+    }
+
     return res.json({ ok: true });
   } catch (err) {
     console.error('devices.update error', err);
@@ -146,6 +168,19 @@ async function remove(req, res) {
     if (!device) return res.status(404).json({ error: 'No encontrado' });
 
     await Devices.deleteDevice(id);
+
+    try {
+      await Audit.createAudit({
+        user_id: req.user ? req.user.id : null,
+        action: 'delete',
+        resource_type: 'device',
+        resource_id: id,
+        payload: { name: device.name, network_id: device.network_id }
+      });
+    } catch (e) {
+      console.warn('Audit log failed (device.delete):', e);
+    }
+
     return res.json({ ok: true });
   } catch (err) {
     console.error('devices.delete error', err);
@@ -160,7 +195,6 @@ async function assignSite(req, res) {
     if (!id) return res.status(400).json({ error: 'id requerido' });
     const device = await Devices.getDeviceById(id);
     if (!device) return res.status(404).json({ error: 'Dispositivo no encontrado' });
-    // Validación: si site_id no es null, verificar network_id coincide
     if (site_id !== null && site_id !== undefined) {
       const Sites = require('../models/sites');
       const site = await Sites.getSiteById(site_id);
@@ -169,6 +203,19 @@ async function assignSite(req, res) {
       }
     }
     await Devices.updateDevice(id, { site_id: site_id === undefined ? null : site_id });
+
+    try {
+      await Audit.createAudit({
+        user_id: req.user ? req.user.id : null,
+        action: 'assign_site',
+        resource_type: 'device',
+        resource_id: id,
+        payload: { site_id: site_id === undefined ? null : site_id }
+      });
+    } catch (e) {
+      console.warn('Audit log failed (device.assignSite):', e);
+    }
+
     return res.json({ ok: true });
   } catch (err) {
     console.error('devices.assignSite error', err);

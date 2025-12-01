@@ -1,4 +1,5 @@
 const Sites = require('../models/sites');
+const Audit = require('../models/auditLogs');
 
 async function list(req, res) {
   try {
@@ -30,7 +31,20 @@ async function create(req, res) {
     if (!body.network_id || !body.name) {
       return res.status(400).json({ error: 'network_id y name son requeridos' });
     }
-    const result = await Sites.createSite(body);  
+    const result = await Sites.createSite(body);
+
+    try {
+      await Audit.createAudit({
+        user_id: req.user ? req.user.id : null,
+        action: 'create',
+        resource_type: 'site',
+        resource_id: result.id,
+        payload: body
+      });
+    } catch (e) {
+      console.warn('Audit log failed (site.create):', e);
+    }
+
     return res.status(201).json({ id: result.id });
   } catch (err) {
     console.error('sites.create error', err);
@@ -51,6 +65,19 @@ async function update(req, res) {
     }
     if (!Object.keys(fields).length) return res.status(400).json({ error: 'Nada para actualizar' });
     await Sites.updateSite(id, fields);
+
+    try {
+      await Audit.createAudit({
+        user_id: req.user ? req.user.id : null,
+        action: 'update',
+        resource_type: 'site',
+        resource_id: id,
+        payload: fields
+      });
+    } catch (e) {
+      console.warn('Audit log failed (site.update):', e);
+    }
+
     return res.json({ ok: true });
   } catch (err) {
     console.error('sites.update error', err);
@@ -64,6 +91,19 @@ async function remove(req, res) {
     const site = await Sites.getSiteById(id);
     if (!site) return res.status(404).json({ error: 'No encontrado' });
     await Sites.deleteSite(id);
+
+    try {
+      await Audit.createAudit({
+        user_id: req.user ? req.user.id : null,
+        action: 'delete',
+        resource_type: 'site',
+        resource_id: id,
+        payload: { name: site.name, parent_id: site.parent_id }
+      });
+    } catch (e) {
+      console.warn('Audit log failed (site.delete):', e);
+    }
+
     return res.json({ ok: true });
   } catch (err) {
     console.error('sites.delete error', err);

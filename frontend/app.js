@@ -518,10 +518,27 @@
   function bindLogoutButton() {
     const logout = document.getElementById('logout-btn');
     if (!logout) return;
-    logout.addEventListener('click', () => {
-      GRAPH_CACHE.clear();
-      Auth.clearAuth();
-      location.replace('./login.html');
+    logout.addEventListener('click', async () => {
+      try {
+        const access = Auth.getAccessToken();
+        const refresh = Auth.getRefreshToken();
+        try {
+          await fetch(Auth.API_BASE + '/auth/logout', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(access ? { 'Authorization': 'Bearer ' + access } : {})
+            },
+            body: JSON.stringify({ refreshToken: refresh || null, all: false })
+          });
+        } catch (e) {
+          console.warn('Logout request failed:', e);
+        }
+      } finally {
+        GRAPH_CACHE.clear();
+        Auth.clearAuth();
+        location.replace('./login.html');
+      }
     });
   }
 
