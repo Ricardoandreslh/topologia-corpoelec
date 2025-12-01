@@ -63,7 +63,6 @@
       if (typeof setStatus === 'function') setStatus('Error inicializando la página', true);
     }
   });
-
   
 
   function bindUIControls() {
@@ -137,6 +136,11 @@
     panel.id = 'site-panel';
     panel.innerHTML = `
       <h3>Vista por Sede</h3>
+      <div style="display:flex; gap:8px; margin-bottom:8px;">
+        <button id="add-site" class="btn btn--primary" title="Agregar Sede">Agregar Sede</button>
+        <button id="edit-site" class="btn" title="Editar Sede">Editar Sede</button>
+        <button id="delete-site" class="btn btn--danger" title="Eliminar Sede">Eliminar Sede</button>
+      </div>
       <div id="site-tree"></div>
       <!-- NUEVO: Toggle para conexiones inter-sede -->
       <label style="margin-top: 10px; display: block;">
@@ -153,54 +157,134 @@
     const main = document.querySelector('.app-main');
     main.insertBefore(panel, main.firstElementChild); 
     
-    API.getSites(networkId).then(sites => {
-      const treeData = [
-        {
-          id: 'general',
-          text: 'General',
-          parent: '#',
-          data: { site_id: null }
-        },
-        ...sites.map(s => ({
-          id: s.id.toString(),
-          text: s.name,
-          parent: s.parent_id ? s.parent_id.toString() : '#',
-          data: { site_id: s.id }
-        }))
-      ];
-      
- 
-      $('#site-tree').jstree({
-        core: {
-          data: treeData,
-          themes: { responsive: true }
-        },
-        plugins: ['types', 'state'], 
-        types: {
-          default: { icon: 'jstree-folder' }, 
-          leaf: { icon: 'jstree-file' }  
-        },
-        state: { key: 'site-tree' }
-      });
-      
-      $('#site-tree').on('ready.jstree', function() {
-        $('#site-tree').jstree('open_all');
-      });
-      
-      $('#site-tree').on('select_node.jstree', function(e, data) {
-        const selectedId = data.node.data.site_id; 
-        GRAPH_CACHE.clear();
-        const showInter = document.getElementById('show-inter-site').checked;
-        loadGraphFor(getCurrentView(), selectedId, { showInterSite: showInter });
+    // Función para (re)construir el árbol con los datos de API
+    async function reloadTree(selectedSiteId = null) {
+      try {
+        const sites = await API.getSites(networkId);
+        const treeData = [
+          {
+            id: 'general',
+            text: 'General',
+            parent: '#',
+            data: { site_id: null }
+          },
+          ...sites.map(s => ({
+            id: s.id.toString(),
+            text: s.name,
+            parent: s.parent_id ? s.parent_id.toString() : '#',
+            data: { site_id: s.id }
+          }))
+        ];
+
+        try {
+          const inst = $('#site-tree').jstree(true);
+          if (inst) {
+            $('#site-tree').jstree('destroy');
+          }
+        } catch (e) {}
+
+        $('#site-tree').jstree({
+          core: {
+            data: treeData,
+            themes: { responsive: true }
+          },
+          plugins: ['types', 'state', 'search'],
+          types: {
+            default: { icon: 'jstree-folder' }, 
+            leaf: { icon: 'jstree-file' }  
+          },
+          state: { key: 'site-tree' }
+        });
+
+        $('#site-tree').on('ready.jstree', function() {
+          $('#site-tree').jstree('open_all');
+          if (selectedSiteId) {
+            try {
+              $('#site-tree').jstree('select_node', String(selectedSiteId));
+            } catch (_) {}
+          }
+        });
         
-      });
-      
-      document.getElementById('show-inter-site').addEventListener('change', (e) => {
-        GRAPH_CACHE.clear();
-        const showInter = e.target.checked;
-        loadGraphFor(getCurrentView(), getCurrentSiteId(), { showInterSite: showInter });
-      });
-    }).catch(err => console.error('Error cargando sedes:', err));
+        $('#site-tree').off('select_node'); // quitar listeners previos
+        $('#site-tree').on('select_node.jstree', function(e, data) {
+          const selectedId = data.node.data.site_id; 
+          GRAPH_CACHE.clear();
+          const showInter = document.getElementById('show-inter-site').checked;
+          loadGraphFor(getCurrentView(), selectedId, { showInterSite: showInter });
+        });
+
+      } catch (err) {
+        console.error('Error cargando sedes:', err);
+        alert('Error cargando sedes: ' + (err?.message || 'desconocido'));
+      }
+    }
+
+    // Inicializar árbol por primera vez
+    reloadTree();
+
+    // Botones agregar / editar / eliminar
+    document.getElementById('add-site').addEventListener('click', async () => {
+      try {
+        const inst = $('#site-tree').jstree(true);
+        const sel = inst ? inst.get_selected(true)[0] : null;
+        const parentId = (sel && sel.data && sel.data.site_id) ? sel.data.site_id : null;
+        const defaultName = parentId ? `Nueva sede hija de ${sel.text}` : 'Nueva Sede';
+        const name = prompt('Nombre de la nueva sede:', defaultName);
+        if (!name) return;
+        const payload = { network_id: Number(networkId), name: name.trim(), parent_id: parentId || null };
+        await API.createSite(payload);
+        await reloadTree();
+        setStatus('Sede creada', false);
+      } catch (err) {
+        console.error('create site error', err);
+        alert('Error creando sede: ' + (err?.message || err));
+      }
+    });
+
+    document.getElementById('edit-site').addEventListener('click', async () => {
+      try {
+        const inst = $('#site-tree').jstree(true);
+        const sel = inst ? inst.get_selected(true)[0] : null;
+        if (!sel || !sel.data || sel.id === 'general') {
+          alert('Selecciona una sede válida para editar (no la categoría "General").');
+          return;
+        }
+        const siteId = sel.data.site_id;
+        const newName = prompt('Nuevo nombre de la sede:', sel.text);
+        if (!newName) return;
+        await API.updateSite(siteId, { name: newName.trim() });
+        await reloadTree(siteId);
+        setStatus('Sede actualizada', false);
+      } catch (err) {
+        console.error('update site error', err);
+        alert('Error actualizando sede: ' + (err?.message || err));
+      }
+    });
+
+    document.getElementById('delete-site').addEventListener('click', async () => {
+      try {
+        const inst = $('#site-tree').jstree(true);
+        const sel = inst ? inst.get_selected(true)[0] : null;
+        if (!sel || !sel.data || sel.id === 'general') {
+          alert('Selecciona una sede válida para eliminar (no la categoría "General").');
+          return;
+        }
+        const siteId = sel.data.site_id;
+        if (!confirm(`¿Eliminar la sede "${sel.text}"? Esto puede mover/afectar dispositivos.`)) return;
+        await API.deleteSite(siteId);
+        await reloadTree();
+        setStatus('Sede eliminada', false);
+      } catch (err) {
+        console.error('delete site error', err);
+        alert('Error eliminando sede: ' + (err?.message || err));
+      }
+    });
+
+    document.getElementById('show-inter-site').addEventListener('change', (e) => {
+      GRAPH_CACHE.clear();
+      const showInter = e.target.checked;
+      loadGraphFor(getCurrentView(), getCurrentSiteId(), { showInterSite: showInter });
+    });
   }
   
   
@@ -211,9 +295,7 @@
       const full = await fetchFullGraph(networkId, getCurrentSiteId()); 
       const projected = projectGraphForView(full, view);
       
-      // Preparar nodos: incluir resumen de puertos y lista compacta
       const nodesData = await Promise.all((projected.nodes || []).map(async (n) => {
-        // intentar obtener puertos desde n.ports si ya vienen; si no, consultar API
         let ports = n.ports || [];
         if ((!ports || ports.length === 0) && n.id) {
           try { ports = await API.getPorts(n.id); } catch (_) { ports = []; }

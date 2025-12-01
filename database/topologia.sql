@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 21-11-2025 a las 14:26:17
+-- Tiempo de generación: 01-12-2025 a las 14:43:18
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -36,31 +36,30 @@ CREATE TABLE `connections` (
   `b_port_id` int(11) DEFAULT NULL,
   `link_type` varchar(50) DEFAULT NULL,
   `status` varchar(50) DEFAULT NULL,
-  `vlan` int(11) DEFAULT NULL,
+  `vlan` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`vlan`)),
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `from_id_norm` int(11) GENERATED ALWAYS AS (least(`from_device_id`,`to_device_id`)) STORED,
   `to_id_norm` int(11) GENERATED ALWAYS AS (greatest(`from_device_id`,`to_device_id`)) STORED,
   `a_port_name` varchar(64) DEFAULT NULL,
-  `b_port_name` varchar(64) DEFAULT NULL,
-  `vlan_id` int(11) DEFAULT NULL
+  `b_port_name` varchar(64) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `connections`
 --
 
-INSERT INTO `connections` (`id`, `network_id`, `from_device_id`, `a_port_id`, `to_device_id`, `b_port_id`, `link_type`, `status`, `vlan`, `created_at`, `a_port_name`, `b_port_name`, `vlan_id`) VALUES
-(247, 1, 152, 138, 156, 194, 'ethernet', 'up', NULL, '2025-11-14 17:58:54', 'Gi0/23', 'Gi0/1', NULL),
-(248, 1, 152, 122, 153, 168, 'ethernet', 'up', NULL, '2025-11-14 17:59:34', 'Gi0/7', 'Gi0/25', NULL),
-(249, 1, 153, 166, 162, 255, 'ethernet', 'up', NULL, '2025-11-14 18:01:28', 'Gi0/23', 'Gi0/13', NULL),
-(250, 1, 153, 165, 155, 185, 'ethernet', 'up', NULL, '2025-11-14 18:01:50', 'Gi0/22', 'Fa0/8', NULL),
-(252, 1, 152, 128, 164, 261, 'ethernet', 'up', NULL, '2025-11-14 18:05:09', 'Gi0/13', 'Fa0/1', NULL),
-(253, 1, 152, 116, 158, 230, 'ethernet', 'up', NULL, '2025-11-14 18:05:43', 'Gi0/1', 'Gi0/7', NULL),
-(254, 1, 152, 130, 159, 234, 'ethernet', 'up', NULL, '2025-11-14 18:06:44', 'Gi0/15', 'Gi0/1', NULL),
-(256, 1, 152, 118, 157, 223, 'ethernet', 'up', NULL, '2025-11-14 18:08:19', 'Gi0/3', 'Fa0/4', NULL),
-(257, 1, 152, 119, 163, 257, 'ethernet', 'up', NULL, '2025-11-20 12:49:18', 'Gi0/4', 'Fa0/2', NULL),
-(272, 1, 163, 256, 164, 262, 'ethernet', 'up', 10, '2025-11-21 13:24:30', 'Fa0/1', 'Fa0/2', NULL),
-(273, 1, 164, 263, 162, 243, 'ethernet', 'up', 10, '2025-11-21 13:24:53', 'Fa0/3', 'Gi0/1', NULL);
+INSERT INTO `connections` (`id`, `network_id`, `from_device_id`, `a_port_id`, `to_device_id`, `b_port_id`, `link_type`, `status`, `vlan`, `created_at`, `a_port_name`, `b_port_name`) VALUES
+(247, 1, 152, 138, 156, 194, 'ethernet', 'up', NULL, '2025-11-14 17:58:54', 'Gi0/23', 'Gi0/1'),
+(248, 1, 152, 122, 153, 168, 'ethernet', 'up', '101', '2025-11-14 17:59:34', 'Gi0/7', 'Gi0/25'),
+(249, 1, 153, 166, 162, 255, 'ethernet', 'up', NULL, '2025-11-14 18:01:28', 'Gi0/23', 'Gi0/13'),
+(250, 1, 153, 165, 155, 185, 'ethernet', 'up', NULL, '2025-11-14 18:01:50', 'Gi0/22', 'Fa0/8'),
+(252, 1, 152, 128, 164, 261, 'ethernet', 'up', NULL, '2025-11-14 18:05:09', 'Gi0/13', 'Fa0/1'),
+(253, 1, 152, 116, 158, 230, 'ethernet', 'up', NULL, '2025-11-14 18:05:43', 'Gi0/1', 'Gi0/7'),
+(254, 1, 152, 130, 159, 234, 'ethernet', 'up', NULL, '2025-11-14 18:06:44', 'Gi0/15', 'Gi0/1'),
+(256, 1, 152, 118, 157, 223, 'ethernet', 'up', NULL, '2025-11-14 18:08:19', 'Gi0/3', 'Fa0/4'),
+(257, 1, 152, 119, 163, 257, 'ethernet', 'up', NULL, '2025-11-20 12:49:18', 'Gi0/4', 'Fa0/2'),
+(293, 1, 167, 287, 166, 278, 'ethernet', 'up', '[102,106,107]', '2025-11-24 13:46:47', 'WLAN0/2', 'Fa0/3'),
+(294, 1, 165, 266, 166, 276, 'ethernet', 'up', '[111,112]', '2025-11-24 13:47:36', 'Gi0/1', 'Fa0/1');
 
 -- --------------------------------------------------------
 
@@ -88,16 +87,19 @@ CREATE TABLE `devices` (
 --
 
 INSERT INTO `devices` (`id`, `network_id`, `name`, `ip_address`, `mac_address`, `device_type`, `location`, `image_id`, `metadata`, `created_at`, `updated_at`, `site_id`) VALUES
-(152, 1, 'SW HUAWEI S230', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'NODO PISO 1 TORRE UNION', 12, NULL, '2025-11-14 17:39:15', '2025-11-14 18:41:38', 4),
-(153, 1, 'SW 3COM', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'CAUC COMERCIAL PISO 1', NULL, NULL, '2025-11-14 17:40:49', '2025-11-14 17:40:49', 4),
-(155, 1, 'SW D-LINK', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'FAURE PISO 1', NULL, NULL, '2025-11-14 17:42:13', '2025-11-14 17:42:13', 4),
-(156, 1, 'SW CISCO CATALYST', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'ATIT PISO 5', NULL, NULL, '2025-11-14 17:43:15', '2025-11-14 17:43:15', 5),
-(157, 1, 'ROUTER HUAWEI AR 2941', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'NODO PISO 1', NULL, NULL, '2025-11-14 17:44:12', '2025-11-14 18:44:50', 4),
-(158, 1, 'ZTE S200', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'NODO PISO 1 TORRE UNION', NULL, NULL, '2025-11-14 17:53:52', '2025-11-14 17:53:52', 4),
-(159, 1, 'MIKROTIK RB5009', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'NODO PISO 1 TORRE UNION', NULL, NULL, '2025-11-14 17:54:32', '2025-11-14 18:44:56', 4),
-(162, 1, 'SW ENCORE UREE', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'UREE PISO 1', NULL, NULL, '2025-11-14 18:01:02', '2025-11-21 13:25:36', 4),
-(163, 1, 'BIOMETRICO', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'Planta Baja', NULL, NULL, '2025-11-14 18:04:05', '2025-11-21 13:25:40', 4),
-(164, 1, 'SERVIDOR BIOMETRICO', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'Piso 1', NULL, NULL, '2025-11-14 18:04:30', '2025-11-21 13:25:45', 4);
+(152, 1, 'SW HUAWEI S230', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'NODO PISO 1 TORRE UNION', 12, '{\"pos\":{\"x\":533,\"y\":211.28}}', '2025-11-14 17:39:15', '2025-11-21 15:24:02', 4),
+(153, 1, 'SW 3COM', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'CAUC COMERCIAL PISO 1', NULL, '{\"pos\":{\"x\":93.27499999999998,\"y\":333.6}}', '2025-11-14 17:40:49', '2025-11-21 15:24:02', 4),
+(155, 1, 'SW D-LINK', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'FAURE PISO 1', NULL, '{\"pos\":{\"x\":337.5666666666667,\"y\":455.92}}', '2025-11-14 17:42:13', '2025-11-21 15:24:02', 4),
+(156, 1, 'SW CISCO CATALYST', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'ATIT PISO 5', NULL, '{\"pos\":{\"x\":239.84999999999997,\"y\":333.6}}', '2025-11-14 17:43:15', '2025-11-21 15:24:02', 5),
+(157, 1, 'ROUTER HUAWEI AR 2941', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'NODO PISO 1', NULL, '{\"pos\":{\"x\":386.42499999999995,\"y\":333.6}}', '2025-11-14 17:44:12', '2025-11-21 15:24:02', 4),
+(158, 1, 'ZTE S200', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'NODO PISO 1 TORRE UNION', NULL, '{\"pos\":{\"x\":533,\"y\":333.6}}', '2025-11-14 17:53:52', '2025-11-21 15:24:02', 4),
+(159, 1, 'MIKROTIK RB5009', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'NODO PISO 1 TORRE UNION', NULL, '{\"pos\":{\"x\":679.575,\"y\":333.6}}', '2025-11-14 17:54:32', '2025-11-21 15:24:02', 4),
+(162, 1, 'SW ENCORE UREE', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'UREE PISO 1', NULL, '{\"pos\":{\"x\":728.4333333333333,\"y\":455.92}}', '2025-11-14 18:01:02', '2025-11-21 15:24:02', 4),
+(163, 1, 'BIOMETRICO', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'Planta Baja', NULL, '{\"pos\":{\"x\":826.1500000000001,\"y\":333.6}}', '2025-11-14 18:04:05', '2025-11-21 15:24:02', 4),
+(164, 1, 'SERVIDOR BIOMETRICO', '198.168.1.1', '7c:86:00:8b:3d:23', 'switch', 'Piso 1', NULL, '{\"pos\":{\"x\":972.725,\"y\":333.6}}', '2025-11-14 18:04:30', '2025-11-21 15:24:02', 4),
+(165, 1, '1312321', '198.168.1.1', '7f:f9:24:f7:da:e5', 'ap', NULL, NULL, '{\"pos\":{\"x\":488.97990684542066,\"y\":202.5168406357061}}', '2025-11-21 15:27:33', '2025-11-21 19:34:31', 1),
+(166, 1, 'dadasda', '111.111.1.1', '7f:f9:24:f7:da:e5', 'ap', NULL, NULL, '{\"pos\":{\"x\":319.1675612466416,\"y\":308.4018120768789}}', '2025-11-21 15:27:54', '2025-11-21 19:20:58', 1),
+(167, 1, 'adasda', '198.168.1.1', '7f:f9:24:f7:da:e5', 'ap', NULL, NULL, '{\"pos\":{\"x\":109.86659518330775,\"y\":191.09537853690944}}', '2025-11-21 15:28:09', '2025-11-21 19:05:17', 1);
 
 -- --------------------------------------------------------
 
@@ -375,7 +377,12 @@ INSERT INTO `login_attempts` (`id`, `user_id`, `username`, `ip`, `success`, `cre
 (204, 1, 'admin', '::1', 1, '2025-11-14 17:39:27'),
 (205, 1, 'admin', '::1', 1, '2025-11-14 18:08:22'),
 (206, 1, 'admin', '::1', 1, '2025-11-14 18:10:31'),
-(207, 1, 'admin', '::1', 1, '2025-11-14 18:11:42');
+(207, 1, 'admin', '::1', 1, '2025-11-14 18:11:42'),
+(208, 1, 'admin', '::1', 1, '2025-11-24 13:07:54'),
+(209, 1, 'admin', '::1', 1, '2025-11-24 13:11:55'),
+(210, 1, 'admin', '::1', 1, '2025-11-28 18:00:35'),
+(211, 1, 'admin', '::1', 1, '2025-11-28 18:00:41'),
+(212, 1, 'admin', '::1', 1, '2025-12-01 13:38:48');
 
 -- --------------------------------------------------------
 
@@ -586,7 +593,37 @@ INSERT INTO `ports` (`id`, `device_id`, `name`, `kind`, `speed_mbps`, `admin_sta
 (262, 164, 'Fa0/2', 'fast-ethernet', 100, 'up', 'down', 2, NULL, '2025-11-14 18:04:30', '2025-11-14 18:04:30'),
 (263, 164, 'Fa0/3', 'fast-ethernet', 100, 'up', 'down', 3, NULL, '2025-11-14 18:04:30', '2025-11-14 18:04:30'),
 (264, 164, 'Fa0/4', 'fast-ethernet', 100, 'up', 'down', 4, NULL, '2025-11-14 18:04:30', '2025-11-14 18:04:30'),
-(265, 164, 'Fa0/5', 'fast-ethernet', 100, 'up', 'down', 5, NULL, '2025-11-14 18:04:30', '2025-11-14 18:04:30');
+(265, 164, 'Fa0/5', 'fast-ethernet', 100, 'up', 'down', 5, NULL, '2025-11-14 18:04:30', '2025-11-14 18:04:30'),
+(266, 165, 'Gi0/1', 'gigabit-ethernet', 1000, 'up', 'down', 1, NULL, '2025-11-21 15:27:33', '2025-11-21 15:27:33'),
+(267, 165, 'Gi0/2', 'gigabit-ethernet', 1000, 'up', 'down', 2, NULL, '2025-11-21 15:27:33', '2025-11-21 15:27:33'),
+(268, 165, 'Gi0/3', 'gigabit-ethernet', 1000, 'up', 'down', 3, NULL, '2025-11-21 15:27:33', '2025-11-21 15:27:33'),
+(269, 165, 'Gi0/4', 'gigabit-ethernet', 1000, 'up', 'down', 4, NULL, '2025-11-21 15:27:33', '2025-11-21 15:27:33'),
+(270, 165, 'Gi0/5', 'gigabit-ethernet', 1000, 'up', 'down', 5, NULL, '2025-11-21 15:27:33', '2025-11-21 15:27:33'),
+(271, 165, 'Gi0/6', 'gigabit-ethernet', 1000, 'up', 'down', 6, NULL, '2025-11-21 15:27:33', '2025-11-21 15:27:33'),
+(272, 165, 'Gi0/7', 'gigabit-ethernet', 1000, 'up', 'down', 7, NULL, '2025-11-21 15:27:33', '2025-11-21 15:27:33'),
+(273, 165, 'Gi0/8', 'gigabit-ethernet', 1000, 'up', 'down', 8, NULL, '2025-11-21 15:27:33', '2025-11-21 15:27:33'),
+(274, 165, 'Gi0/9', 'gigabit-ethernet', 1000, 'up', 'down', 9, NULL, '2025-11-21 15:27:33', '2025-11-21 15:27:33'),
+(275, 165, 'Gi0/10', 'gigabit-ethernet', 1000, 'up', 'down', 10, NULL, '2025-11-21 15:27:33', '2025-11-21 15:27:33'),
+(276, 166, 'Fa0/1', 'fast-ethernet', 100, 'up', 'down', 1, NULL, '2025-11-21 15:27:54', '2025-11-21 15:27:54'),
+(277, 166, 'Fa0/2', 'fast-ethernet', 100, 'up', 'down', 2, NULL, '2025-11-21 15:27:54', '2025-11-21 15:27:54'),
+(278, 166, 'Fa0/3', 'fast-ethernet', 100, 'up', 'down', 3, NULL, '2025-11-21 15:27:54', '2025-11-21 15:27:54'),
+(279, 166, 'Fa0/4', 'fast-ethernet', 100, 'up', 'down', 4, NULL, '2025-11-21 15:27:54', '2025-11-21 15:27:54'),
+(280, 166, 'Fa0/5', 'fast-ethernet', 100, 'up', 'down', 5, NULL, '2025-11-21 15:27:54', '2025-11-21 15:27:54'),
+(281, 166, 'Fa0/6', 'fast-ethernet', 100, 'up', 'down', 6, NULL, '2025-11-21 15:27:54', '2025-11-21 15:27:54'),
+(282, 166, 'Fa0/7', 'fast-ethernet', 100, 'up', 'down', 7, NULL, '2025-11-21 15:27:54', '2025-11-21 15:27:54'),
+(283, 166, 'Fa0/8', 'fast-ethernet', 100, 'up', 'down', 8, NULL, '2025-11-21 15:27:54', '2025-11-21 15:27:54'),
+(284, 166, 'Fa0/9', 'fast-ethernet', 100, 'up', 'down', 9, NULL, '2025-11-21 15:27:54', '2025-11-21 15:27:54'),
+(285, 166, 'Fa0/10', 'fast-ethernet', 100, 'up', 'down', 10, NULL, '2025-11-21 15:27:54', '2025-11-21 15:27:54'),
+(286, 167, 'WLAN0/1', 'wifi', 1000, 'up', 'down', 1, NULL, '2025-11-21 15:28:09', '2025-11-21 15:28:09'),
+(287, 167, 'WLAN0/2', 'wifi', 1000, 'up', 'down', 2, NULL, '2025-11-21 15:28:09', '2025-11-21 15:28:09'),
+(288, 167, 'WLAN0/3', 'wifi', 1000, 'up', 'down', 3, NULL, '2025-11-21 15:28:09', '2025-11-21 15:28:09'),
+(289, 167, 'WLAN0/4', 'wifi', 1000, 'up', 'down', 4, NULL, '2025-11-21 15:28:09', '2025-11-21 15:28:09'),
+(290, 167, 'WLAN0/5', 'wifi', 1000, 'up', 'down', 5, NULL, '2025-11-21 15:28:09', '2025-11-21 15:28:09'),
+(291, 167, 'WLAN0/6', 'wifi', 1000, 'up', 'down', 6, NULL, '2025-11-21 15:28:09', '2025-11-21 15:28:09'),
+(292, 167, 'WLAN0/7', 'wifi', 1000, 'up', 'down', 7, NULL, '2025-11-21 15:28:09', '2025-11-21 15:28:09'),
+(293, 167, 'WLAN0/8', 'wifi', 1000, 'up', 'down', 8, NULL, '2025-11-21 15:28:09', '2025-11-21 15:28:09'),
+(294, 167, 'WLAN0/9', 'wifi', 1000, 'up', 'down', 9, NULL, '2025-11-21 15:28:09', '2025-11-21 15:28:09'),
+(295, 167, 'WLAN0/10', 'wifi', 1000, 'up', 'down', 10, NULL, '2025-11-21 15:28:09', '2025-11-21 15:28:09');
 
 -- --------------------------------------------------------
 
@@ -674,7 +711,7 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `username`, `email`, `password_hash`, `role_id`, `status`, `last_login`, `created_at`, `updated_at`, `is_active`) VALUES
-(1, 'admin', 'admin@local', '$2b$10$xBCl/od4qYezgJ939oUcK.qfW/h2vr.dKZJBXfAuvRxi6rxWc/Rw.', 1, 'active', '2025-11-14 18:11:42', '2025-10-14 17:51:23', '2025-11-14 18:11:42', 1),
+(1, 'admin', 'admin@local', '$2b$10$xBCl/od4qYezgJ939oUcK.qfW/h2vr.dKZJBXfAuvRxi6rxWc/Rw.', 1, 'active', '2025-12-01 13:38:48', '2025-10-14 17:51:23', '2025-12-01 13:38:48', 1),
 (3, 'normal', 'normal@local', '$2b$10$vJNZ4QVQyem5iZ/Xs5DiyuuW.Qnz22ZpiaUDswy9FlWnswleZvm0O', 2, 'active', '2025-10-31 14:34:05', '2025-10-22 14:03:03', '2025-10-31 14:34:05', 1);
 
 -- --------------------------------------------------------
@@ -832,13 +869,13 @@ ALTER TABLE `view_backgrounds`
 -- AUTO_INCREMENT de la tabla `connections`
 --
 ALTER TABLE `connections`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=274;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=296;
 
 --
 -- AUTO_INCREMENT de la tabla `devices`
 --
 ALTER TABLE `devices`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=165;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=168;
 
 --
 -- AUTO_INCREMENT de la tabla `device_positions`
@@ -856,7 +893,7 @@ ALTER TABLE `images`
 -- AUTO_INCREMENT de la tabla `login_attempts`
 --
 ALTER TABLE `login_attempts`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=208;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=213;
 
 --
 -- AUTO_INCREMENT de la tabla `networks`
@@ -874,7 +911,7 @@ ALTER TABLE `ping_logs`
 -- AUTO_INCREMENT de la tabla `ports`
 --
 ALTER TABLE `ports`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=266;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=296;
 
 --
 -- AUTO_INCREMENT de la tabla `roles`

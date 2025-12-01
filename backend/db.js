@@ -2,10 +2,7 @@ const mysql = require('mysql2/promise');
 
 let pool;
 
-/**
- * Inicializa el pool de MySQL usando variables de entorno.
- * Llama a esta función antes de levantar el servidor (server.js).
- */
+
 async function initDb() {
   if (pool) return pool;
 
@@ -17,11 +14,9 @@ async function initDb() {
     waitForConnections: true,
     connectionLimit: 10,
     connectTimeout: 10_000,
-    // Opcionales útiles en desarrollo:
     multipleStatements: false
   });
 
-  // Prueba de conexión
   const conn = await pool.getConnection();
   try {
     await conn.ping();

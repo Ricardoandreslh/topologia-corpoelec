@@ -1,4 +1,3 @@
-
 (function (global) {
   const RETRY_MAX = 4;
   const RETRY_BASE_MS = 250;
@@ -156,9 +155,49 @@
     return data.data || [];
   }
 
+  // --- NUEVAS FUNCIONES para CRUD de SEDES ---
+  async function createSite(data) {
+    const res = await Auth.apiFetch('/sites', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(()=>null);
+      throw new Error(t || 'Error creando sede');
+    }
+    return res.json();
+  }
+
+  async function updateSite(id, data) {
+    const res = await Auth.apiFetch(`/sites/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(()=>null);
+      throw new Error(t || 'Error actualizando sede');
+    }
+    return res.json();
+  }
+
+  async function deleteSite(id) {
+    const res = await Auth.apiFetch(`/sites/${encodeURIComponent(id)}`, {
+      method: 'DELETE'
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(()=>null);
+      throw new Error(t || 'Error eliminando sede');
+    }
+    return res.json();
+  }
+
   global.API = { getDevices, getConnections, getGraph, 
     createDevice, updateDevice, deleteDevice, 
     createConnection, updateConnection, deleteConnection, 
     getDevice, getConnection, getPorts, 
-    upsertPorts, getSites };
+    upsertPorts, getSites,
+    createSite, updateSite, deleteSite
+  };
 })(window);
