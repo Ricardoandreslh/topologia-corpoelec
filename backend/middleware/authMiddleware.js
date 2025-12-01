@@ -1,5 +1,6 @@
 const { verifyAccess } = require('../utils/jwt');
 const Blacklist = require('../models/blacklistedTokens');
+const Sessions = require('../models/refreshTokens'); 
 
 const ROLES = Object.freeze({
   ADMIN: 'admin',
@@ -40,6 +41,16 @@ async function requireAuth(req, res, next) {
       if (isBlack) return jsonError(res, 401, 'Token revocado', 'TOKEN_REVOKED');
     } catch (e) {
       console.warn('Blacklist check failed', e);
+    }
+
+    try {
+      const tokenJti = payload && payload.jti ? payload.jti : null;
+      if (tokenJti) {
+        const ses = await Sessions.getSessionByJti(tokenJti);
+        if (!ses) return jsonError(res, 401, 'Sesión inválida o cerrada', 'SESSION_REVOKED');
+      }
+    } catch (e) {
+      console.warn('Session check failed', e);
     }
 
     const role = String(payload.role || '').toLowerCase();

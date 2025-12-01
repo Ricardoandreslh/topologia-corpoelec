@@ -18,11 +18,10 @@ app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 app.use(morgan('dev'));
 
-//Rate limiting global opcional en server.js
 const { apiLimiter } = require('./middleware/rateLimiters');
 app.use('/api', apiLimiter);
 
-// Rutas de API (auth primero)
+// Rutas de API 
 const authRoutes = require('./routes/auth');
 app.use('/api', authRoutes);
 
@@ -43,7 +42,6 @@ app.use('/api/connections', connectionsRouter);
 app.use('/api/images', imagesRouter);
 app.use('/api/users', require('./routes/users.routes'));
 
-// Healthcheck con verificación de DB
 app.get('/health', async (_req, res) => {
   try {
     const pool = getPool();
@@ -76,12 +74,10 @@ try {
   console.log('[WARN] routes/diagnostics no disponible aún (OK para Día 2)');
 }
 
-// Enviar index.html por defecto
 app.get('*', (_req, res) => {
   res.sendFile(path.join(FRONTEND_DIR, 'index.html'));
 });
 
-// Inicialización: DB + servidor HTTP
 const PORT = process.env.PORT || 3000;
 
 initDb()

@@ -16,9 +16,7 @@ const Blacklist = require('../models/blacklistedTokens');
 const crypto = require('crypto');
 
 function genJti() {
-  if (typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
   return crypto.randomBytes(16).toString('hex');
 }
 
@@ -69,12 +67,12 @@ async function login(req, res) {
 
     await clearLocks(user.id);
     await Users.updateLastLogin(user.id);
-    const payload = { id: user.id, username: user.username, role: user.role, status: user.status };
-
-    const accessToken = signAccessToken(payload);
 
     const jti = genJti();
     const refreshToken = signRefreshToken({ id: user.id, jti });
+
+    const payload = { id: user.id, username: user.username, role: user.role, status: user.status, jti };
+    const accessToken = signAccessToken(payload);
 
     let decoded;
     try {
@@ -160,7 +158,8 @@ async function refresh(req, res) {
     if (!user || user.status !== 'active') {
       return res.status(403).json({ error: 'Usuario inválido o deshabilitado' });
     }
-    const payload = { id: user.id, username: user.username, role: user.role, status: user.status };
+
+    const payload = { id: user.id, username: user.username, role: user.role, status: user.status, jti: newJti };
     const accessToken = signAccessToken(payload);
 
     return res.json({ accessToken, refreshToken: newRefreshToken });

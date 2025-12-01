@@ -113,7 +113,6 @@
     if (applyBtn) {
       applyBtn.addEventListener('click', () => {
         const v = (document.getElementById('vlan-filter')?.value || '').trim();
-        // guardar en sessionStorage para persistir entre cargas básicas
         try { sessionStorage.setItem('vlan_filter', v); } catch (_) {}
         GRAPH_CACHE.clear();
         loadGraphFor(getCurrentView(), getCurrentSiteId(), { vlanFilter: v ? v.split(',').map(s => s.trim()) : null });
@@ -155,7 +154,6 @@
     const main = document.querySelector('.app-main');
     main.insertBefore(panel, main.firstElementChild);
   
-    // (re)construir el árbol
     async function reloadTree(selectedSiteId = null) {
       try {
         const sites = await API.getSites(networkId);
@@ -199,7 +197,6 @@
       }
     }
   
-    // Inicial
     reloadTree();
   
     async function openSiteModal(mode = 'create', site = null) {
@@ -479,7 +476,6 @@
   }
   
   function bindModals() {
-    // Dispositivo
     const deviceForm = document.getElementById('device-form');
     const deviceModal = document.getElementById('device-modal');
     const deviceClose = document.getElementById('device-close');
@@ -488,7 +484,6 @@
     [deviceClose, deviceCancel].forEach(btn => btn?.addEventListener('click', () => closeModal(deviceModal)));
   
     
-    // Conexión
     const connectionForm = document.getElementById('connection-form');
     const connectionModal = document.getElementById('connection-modal');
     const connectionClose = document.getElementById('connection-close');
@@ -647,7 +642,6 @@
       let connections = [];
       try { connections = await API.getConnections(networkId); } catch (e) { console.warn('getConnections failed', e); }
   
-      // Construir mapa puerto -> { peerDeviceId, peerPortName, vlan }
       const portConnMap = new Map();
       (connections || []).forEach(conn => {
         if (conn.a_port_id) {
@@ -769,9 +763,7 @@
     }
   }
   
-  // --- Lightbox helpers ---
   function openImageLightbox(src, title) {
-    // crear overlay
     const overlay = document.createElement('div');
     overlay.className = 'image-lightbox';
     overlay.tabIndex = -1;
@@ -790,13 +782,11 @@
     overlay.appendChild(closeBtn);
   
     overlay.addEventListener('click', (ev) => {
-      // cerrar si clic fuera de la imagen o si clic en backdrop
       if (ev.target === overlay) closeImageLightbox(overlay);
     });
   
     document.body.appendChild(overlay);
   
-    // cerrar con Escape
     const onKey = (e) => { if (e.key === 'Escape') closeImageLightbox(overlay); };
     overlay._onKey = onKey;
     document.addEventListener('keydown', onKey);
@@ -1005,7 +995,6 @@
       document.getElementById('connection-to').value = connection.to_device_id;  
       document.getElementById('connection-link-type').value = connection.link_type || '';  
       document.getElementById('connection-status').value = connection.status || 'unknown';
-      // VLAN
       const vlanEl = document.getElementById('connection-vlan');
       if (vlanEl) vlanEl.value = connection.vlan || '';
     } else {
@@ -1035,7 +1024,6 @@
       return;
     }
     
-    // VLAN: leer número (opcional)
     const vlanStr = document.getElementById('connection-vlan')?.value;
     let vlanVal = null;
     if (vlanStr !== undefined && vlanStr !== null && vlanStr !== '') {
@@ -1219,7 +1207,6 @@
       else if (type === 'site') await API.deleteSite(id);
       GRAPH_CACHE.clear();
       await loadGraphFor(getCurrentView(), getCurrentSiteId());
-      // cerrar confirm modal
       closeModal(modal);
     } catch (err) {
       alert('Error: ' + (err?.message || err));
@@ -1272,35 +1259,27 @@
   }
   
   function handleSearch(event) {
-    // event puede ser evento input o llamado manual con { target: { value } }
     const containerId = getActiveContainerId();
     const raw = (event && event.target && event.target.value !== undefined) ? event.target.value : (typeof event === 'string' ? event : '');
     const query = String(raw || '').trim();
   
-    // Si está vacío: limpiar filtro (recargar grafo sin filtro)
     if (!query) {
-      // recargar grafo sin filtro
       GRAPH_CACHE.clear();
       loadGraphFor(getCurrentView(), getCurrentSiteId(), { vlanFilter: null });
-      // además quitar highlights si había
       if (window.Canvas?.searchNodes) window.Canvas.searchNodes(containerId, '');
       return;
     }
   
-    // Detectar si parece VLAN(s): solo dígitos, comas y espacios
     const vlanCandidate = query.replace(/\s+/g, '');
     const isVlanLike = /^[0-9]+(,[0-9]+)*$/.test(vlanCandidate);
   
     if (isVlanLike) {
-      // convertir a array de strings
       const vlans = vlanCandidate.split(',').map(s => s.trim()).filter(Boolean);
       GRAPH_CACHE.clear();
-      // recargar con filtro VLAN (no hace highlight, muestra solo nodos/enlaces que participan)
       loadGraphFor(getCurrentView(), getCurrentSiteId(), { vlanFilter: vlans });
       return;
     }
   
-    // Si no es VLAN, usar búsqueda de texto (highlight) en canvas
     if (window.Canvas?.searchNodes) {
       window.Canvas.searchNodes(containerId, query);
     }
@@ -1565,7 +1544,6 @@ function projectGraphForView(full, view, opts = {}) {
   const primaryNodes = nodes.filter(n => nodeCategory(n.type) === desired);
   const primaryIds = new Set(primaryNodes.map(n => String(n.id)));
 
-  // Construir viewEdges (filtrado por tipo de vista)
   let viewEdges = edges
     .filter(e => primaryIds.has(String(e.source)) || primaryIds.has(String(e.target)))
     .map(e => {
@@ -1574,7 +1552,6 @@ function projectGraphForView(full, view, opts = {}) {
       return { ...e, cross: (sIn && !tIn) || (!sIn && tIn) };
     });
 
-  // FILTRADO por VLAN si opts.vlanFilter existe (array de strings o numbers)
   if (opts && opts.vlanFilter && Array.isArray(opts.vlanFilter) && opts.vlanFilter.length) {
     const wanted = new Set(opts.vlanFilter.map(x => String(x)));
     viewEdges = viewEdges.filter(e => {
@@ -1702,7 +1679,6 @@ document.addEventListener('node:contextmenu', function(evt) {
     }
   
     const isA = portType === 'A';
-    // Pedimos VLAN(s) en el modal A (primer paso). Entrada libre: coma-separada (ej: "10,20,30").
     const vlanInputHtml = isA ? `
         <div style="margin-top:10px;">
           <label for="port-vlan">VLAN(s) (opcional). CSV, ej: 10,20,30</label>
@@ -1728,11 +1704,9 @@ document.addEventListener('node:contextmenu', function(evt) {
   
     function parseVlanInput(txt) {
       if (!txt) return null;
-      // split por coma, quitar espacios, filtrar vacíos y convertir a enteros
       const parts = txt.split(',').map(s => s.trim()).filter(Boolean);
       const nums = parts.map(p => parseInt(p, 10)).filter(n => !Number.isNaN(n));
       if (nums.length === 0) return null;
-      // validar rango 1..4094
       if (nums.some(v => v < 1 || v > 4094)) return { error: 'VLAN inválida. Rango 1..4094' };
       return nums;
     }
@@ -1741,7 +1715,6 @@ document.addEventListener('node:contextmenu', function(evt) {
       const selectedPortIdStr = document.getElementById('port-select').value;
       const selectedPort = freePorts.find(p => String(p.id) === String(selectedPortIdStr));
       if (portType === 'A') {
-        // Leer VLAN(s) en A (opcional)
         let vlanVal = null;
         const vlanEl = document.getElementById('port-vlan');
         if (vlanEl && vlanEl.value !== '') {
@@ -1762,7 +1735,6 @@ document.addEventListener('node:contextmenu', function(evt) {
         const bPortId = parseInt(selectedPortIdStr, 10);
         const bPortName = selectedPort?.name || null;
   
-        // VLAN: usar la VLAN(s) escogida en A (si existe)
         let vlanVal = null;
         if (window.selectedPortA && window.selectedPortA.vlan) vlanVal = window.selectedPortA.vlan;
   

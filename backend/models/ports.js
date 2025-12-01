@@ -29,7 +29,6 @@ async function deletePort(id) {
 }
 
 async function upsertPorts(deviceId, ports) {
-  // Borra existentes y inserta nuevos (simple upsert)
   await getPool().execute('DELETE FROM ports WHERE device_id=?', [deviceId]);
   for (const p of ports) {
     await createPort({ device_id: deviceId, ...p });

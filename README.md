@@ -22,17 +22,15 @@ Cambios recientes importantes
 
 Cómo ejecutar localmente
 1. Clonar repo
-2. Crear base de datos MySQL (ej. `topologia`) e importar `topologia.sql` (o `topologia (2).sql`) desde `./sql` o phpMyAdmin.
-3. Aplicar migración adicional (audit_logs + blacklisted_tokens) — ver `docs/deploy.md` o ejecutar las sentencias SQL allí.
-4. Crear archivo `.env` con la configuración de DB y JWT (ver `.env.example`).
-5. Instalar dependencias:
+2. Crear base de datos MySQL (ej. `topologia`) e importar `topologia.sql` desde `./sql` o phpMyAdmin.
+3. Crear archivo `.env` con la configuración de DB y JWT (ver `.env.example`).
+4. Instalar dependencias:
    ```
-   cd backend
    npm install
    ```
-6. Arrancar servidor:
+5. Arrancar servidor:
    ```
-   node backend/server.js
+   npm run dev
    ```
 7. Abrir `http://localhost:3000/` (si no hay token válido, serás redirigido a login).
 
@@ -43,8 +41,3 @@ Endpoints de interés
 - GET /api/auth/sessions
 - DELETE /api/auth/sessions/:id
 - GET /api/networks/:networkId/graph
-
-Notas de seguridad
-- En producción configura variables JWT secrets y usa HTTPS.
-- Las entradas en `blacklisted_tokens` almacenan hash del token, no el token en texto plano.
-- Para invalidar accesos inmediatamente usa logout (client debe enviar access token en Authorization header o refresh token en body).

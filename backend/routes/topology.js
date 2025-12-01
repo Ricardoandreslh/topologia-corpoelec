@@ -4,14 +4,12 @@ const { Networks, Devices, Connections } = require('../models');
 
 const router = Router();
 
-// Lectura (cualquier usuario autenticado)
 router.get('/networks', requireAuth, async (req, res) => {
   const type = req.query.type || undefined;
   const data = await Networks.listNetworks({ type });
   res.json(data);
 });
 
-// Crear red (solo admin)
 router.post('/networks', requireAuth, requireRole('admin'), async (req, res) => {
   const { name, type, description = null } = req.body || {};
   if (!name || !type) return res.status(400).json({ error: 'name y type requeridos' });
@@ -19,7 +17,6 @@ router.post('/networks', requireAuth, requireRole('admin'), async (req, res) => 
   res.status(201).json({ id });
 });
 
-// Crear dispositivo (admin)
 router.post('/networks/:networkId/devices', requireAuth, requireRole('admin'), async (req, res) => {
   const { networkId } = req.params;
   const { name, device_type, ip_address, mac_address, location } = req.body || {};
