@@ -12,18 +12,15 @@ async function list(req, res) {
     // Obtener puertos
     const rows = await Ports.listPortsByDevice(deviceId);
 
-    // Si no hay puertos, devolver []
     if (!rows || rows.length === 0) {
       return res.json({ data: [] });
     }
 
-    // Obtener ids de puertos y buscar conexiones que referencien esos puertos
     const portIds = rows.map(r => r.id);
     const placeholders = portIds.map(() => '?').join(',');
     const sql = `SELECT a_port_id AS pid FROM connections WHERE a_port_id IN (${placeholders})
                  UNION
                  SELECT b_port_id AS pid FROM connections WHERE b_port_id IN (${placeholders})`;
-    // Ejecutar con duplicado de params (por los dos IN)
     const params = [...portIds, ...portIds];
     const connRows = await query(sql, params);
 

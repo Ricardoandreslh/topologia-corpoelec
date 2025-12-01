@@ -54,7 +54,6 @@
         }
   
         Auth.setTokens(data.accessToken, data.refreshToken, data.user || null, persist);
-        // Redirige a la app
         location.replace('./index.html');
       } catch (e) {
         showError('No se pudo conectar con el servidor');

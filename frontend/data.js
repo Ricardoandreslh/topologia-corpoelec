@@ -40,9 +40,9 @@
     try { const j = await res.json(); return j && (j.error || j.message); } catch (_e) { return ''; }
   }
 
-  const _portsCache = new Map(); // deviceId -> { ts, data }
-  const _portsInflight = new Map(); // deviceId -> Promise
-  const PORTS_TTL_MS = 15 * 1000; // 15s cache (ajustable)
+  const _portsCache = new Map();
+  const _portsInflight = new Map(); 
+  const PORTS_TTL_MS = 15 * 1000;
 
   async function getPorts(deviceId) {
     if (!deviceId) return [];
@@ -155,7 +155,6 @@
     return data.data || [];
   }
 
-  // --- NUEVAS FUNCIONES para CRUD de SEDES ---
   async function createSite(data) {
     const res = await Auth.apiFetch('/sites', {
       method: 'POST',

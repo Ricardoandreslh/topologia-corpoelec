@@ -118,7 +118,7 @@
   }
 
   function mapElements(graph) {
-    const nodeVlanMap = {}; // nodeId -> Set(vlan)
+    const nodeVlanMap = {}; 
   
     (graph.edges || []).forEach(e => {
       let ev = e.vlan;
@@ -133,7 +133,7 @@
       }
     });
   
-    // Mapear dispositivos (SIN parent por VLAN)
+   
     const nodes = (graph.nodes || []).map(n => {
       let meta = {};
       if (n.metadata) {
@@ -144,7 +144,6 @@
       const derivedSummary = { total: portsArr.length, used: portsArr.filter(p => p.connected === true).length };
       const finalSummary = n.ports_summary || (portsArr.length ? derivedSummary : { total: 0, used: 0 });
   
-      // VLANs del nodo (para tooltip), no se usan como parent
       const vlansForNode = Array.from((nodeVlanMap[n.id] && nodeVlanMap[n.id].size) ? nodeVlanMap[n.id] : []);
   
       return {
@@ -164,16 +163,13 @@
           site_id: n.site_id || null,
           ghost: n.ghost ? 'true' : 'false',
           invisible: n.invisible ? 'true' : 'false',
-          // campo auxiliar con VLANs (array o null) para tooltip/details
           vlanList: vlansForNode.length ? vlansForNode : null,
-          // indicador si ya tenía pos guardada
           _hasPos: !!p
         },
         position: p && hasNum(p.x) && hasNum(p.y) ? { x: Number(p.x), y: Number(p.y) } : undefined
       };
     });
   
-    // Mapear edges: etiqueta combinada con link_type y VLANs
     const edges = (graph.edges || []).map(e => {
       const arr = Array.isArray(e.vlan) ? e.vlan.map(v => String(v)) : (e.vlan !== undefined && e.vlan !== null ? [String(e.vlan)] : []);
       const vlanStr = arr.length ? arr.join(',') : null;
@@ -187,7 +183,7 @@
           source: String(e.source),
           target: String(e.target),
           label: label,
-          vlanStr: vlanStr,    // opcional, todavía disponible
+          vlanStr: vlanStr,  
           vlan: arr.length ? arr : null,
           vlanKey: vlanKey,
           link_type: linkType,
@@ -296,7 +292,6 @@
     
     const nodeCount = elements.nodes ? elements.nodes.length : 0;
 
-    // Para redes de switches
     if (viewType === 'switches') {
       return {
         name: 'breadthfirst',
@@ -311,7 +306,6 @@
       };
     }
     
-    // Para redes WiFi
     if (viewType === 'wifi') {
       return {
         name: 'breadthfirst',
@@ -388,7 +382,6 @@
   
       cy.on('tap', 'node', ev => {
         const d = ev.target.data();
-        //console.log('Nodo clickeado:', d);
         if (window.connectMode) {
           const summary = d.ports_summary || { total: 0, used: 0 };
           const free = summary.total - summary.used;
@@ -481,7 +474,6 @@
     let summary = d.ports_summary || { total: ports.length, used: ports.filter(p => p.connected === true).length };
     const free = (summary.total || 0) - (summary.used || 0);
   
-    // Buscar VLANs en los edges conectados a este nodo (extraer valores únicos)
     const connectedEdges = node.connectedEdges ? node.connectedEdges() : [];
     const vlans = new Set();
     if (connectedEdges && connectedEdges.length) {
@@ -542,7 +534,6 @@
   }
 
   function computeConvexHull(points) {
-    // points: array de {x,y}
     if (!points || points.length <= 2) return points.slice();
     const pts = points.slice().sort((a,b) => a.x === b.x ? a.y - b.y : a.x - b.x);
     function cross(o, a, b) { return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x); }
@@ -562,7 +553,6 @@
     return lower.concat(upper);
   }
   
-  // --- UTIL: punto dentro de polígono (ray-casting) ---
   function pointInPolygon(pt, poly) {
     if (!poly || poly.length < 3) return false;
     let inside = false;
@@ -633,7 +623,6 @@
     } else {
       cy.one('layoutstop', onLayoutStop);
     }
-    // al final seguir con el ajuste de zoom/fit como antes
     setTimeout(() => {
       cy.fit(cy.elements(), 60);
       if (cy.zoom() > 2) cy.zoom(2);
@@ -669,9 +658,7 @@
     const cy = instances.get(containerId);
     if (!cy) return Promise.reject(new Error('Canvas no encontrado'));
     const name = filename || `topologia_${containerId}_${new Date().toISOString().replace(/[:.]/g,'-')}.png`;
-    // scale mayor para alta resolución
     const data = cy.png({ full: true, scale: 2, bg: '#ffffff' });
-    // crear link y descargar
     const a = document.createElement('a');
     a.href = data;
     a.download = name;

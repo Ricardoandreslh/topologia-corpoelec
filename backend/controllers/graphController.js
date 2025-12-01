@@ -40,19 +40,15 @@ async function getGraphByNetwork(req, res) {
     let filteredDevices = devices;
 
     if (site_id) {
-      // Filtrar nodos que pertenecen a la sede y construir lista de edges inter-sede conservando
-      // conexiones que tengan cualquiera de los extremos en la sede seleccionada.
       const siteDevices = devices.filter(d => d.site_id == site_id);
       const siteNodeIds = new Set(siteDevices.map(d => d.id));
 
-      // Keep edges where source OR target is in siteNodeIds
       let tempEdges = connections.map(c => ({
         id: c.id,
         source: c.from_device_id,
         target: c.to_device_id
       })).filter(e => siteNodeIds.has(e.source) || siteNodeIds.has(e.target));
 
-      // Encontrar nodos externos referenciados (los que no están en la sede)
       const externalIds = new Set();
       tempEdges.forEach(e => {
         if (!siteNodeIds.has(e.source)) externalIds.add(e.source);
@@ -60,7 +56,6 @@ async function getGraphByNetwork(req, res) {
       });
 
       const externalNodes = devices.filter(d => externalIds.has(d.id)).map(d => ({ ...d, ghost: true, invisible: false }));
-      // Resultado: los nodos de la sede + nodos externos referenciados
       filteredDevices = [...siteDevices, ...externalNodes];
     }
 
@@ -111,7 +106,6 @@ async function getGraphByNetwork(req, res) {
 
     if (site_id) {
       const siteNodeIds = new Set(filteredDevices.map(d => d.id));
-      // Mantener edges donde al menos un extremo esté en la vista de 'filteredDevices'
       edges = edges.filter(e => siteNodeIds.has(e.source) || siteNodeIds.has(e.target));
     }
 

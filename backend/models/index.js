@@ -1,4 +1,3 @@
-// Aggregator para importar modelos desde un solo lugar
 module.exports = {
     Roles: require('./roles'),
     Users: require('./users'),
