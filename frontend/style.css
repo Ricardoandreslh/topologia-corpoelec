@@ -20,7 +20,7 @@
   --surface-1: #ffffff;
   --surface-2: #f3f5f9;
   --surface-3: #eef3f9;
-  --text: #233970;      /* azul CORPOELEC para textos en tema claro */
+  --text: #233970;
   --muted: #5b677a;
   --brand: #233970;
   --brand-2: #1b2f5a;
@@ -714,7 +714,6 @@ input[type="password"] {
   background: var(--surface-3);
 }
 
-/* === MODAL MEJORADO PARA DISPOSITIVOS === */
 .modal-dialog--device {
   width: auto; 
   max-width: 600px;
@@ -821,7 +820,6 @@ input[type="password"] {
   color: #0b0d12;
 }
 
-/* Input de búsqueda para sedes */
 #site-selector-container input[type="text"] {
   width: 100%;
   padding: 8px 12px;
@@ -838,7 +836,6 @@ input[type="password"] {
   box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
 }
 
-/* Form actions alineadas */
 .form-actions {
   grid-column: 1 / -1;
   display: flex;
@@ -885,10 +882,9 @@ input[type="password"] {
   position: fixed;
   inset: 0;
   z-index: 10000;
-  pointer-events: none; /* por defecto inactivo hasta que se abra */
+  pointer-events: none;
 }
 
-/* backdrop: oculto por defecto, visible cuando aria-hidden="false" */
 #details-modal .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -899,7 +895,6 @@ input[type="password"] {
   z-index: 10000;
 }
 
-/* panel */
 #details-modal .modal-dialog {
   position: fixed;
   left: 0;
@@ -918,7 +913,6 @@ input[type="password"] {
   z-index: 10001;
 }
 
-/* cuando el modal está abierto (aria-hidden="false") lo mostramos */
 #details-modal[aria-hidden="false"] {
   pointer-events: auto;
 }
@@ -930,7 +924,6 @@ input[type="password"] {
   transform: translateX(0);
 }
 
-/* Ajustes visuales internos (si hace falta) */
 #details-modal .modal-dialog .modal-close {
   position: absolute;
   right: 10px;
@@ -940,11 +933,9 @@ input[type="password"] {
 #details-content {
   margin-top: 8px;
   gap: 12px;
-  /* columna izquierda más ancha para imagen */
   grid-template-columns: 220px 1fr !important;
 }
 
-/* imagen en miniatura más grande y centrada */
 #details-image {
   padding-right: 12px;
   display: flex;
@@ -962,7 +953,6 @@ input[type="password"] {
   box-shadow: 0 6px 18px rgba(0,0,0,0.12);
 }
 
-/* Lightbox overlay */
 .image-lightbox {
   position: fixed;
   inset: 0;
