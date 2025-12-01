@@ -321,22 +321,10 @@
         }
     
         if (summary) {
-          const s = summary;
-          const siteName = s.site?.name || sel.text || String(siteId);
-          const direct = s.devices_direct || 0;
-          const inTree = s.devices_in_tree || 0;
-          const child = s.child_sites || 0;
-          const descendants = s.descendant_sites || 0;
-          let msg = `Eliminar la sede "${siteName}" (ID: ${siteId}).\n\n` +
-                    `• Dispositivos actualmente asignados a esta sede: ${direct}.\n` +
-                    `• Dispositivos en toda la jerarquía (sede + descendientes): ${inTree}.\n` +
-                    `• Sedes hijas directas: ${child}.\n` +
-                    `• Sedes descendientes totales: ${descendants}.\n\n` +
-                    `Si confirma, los ${direct} dispositivos asignados DIRECTAMENTE a "${siteName}" quedarán sin sede (se les asignará NULL). ` +
-                    `Las sedes hijas (si existen) mantendrán sus dispositivos. ¿Desea continuar?`;
-          openConfirmModal('site', { id: siteId, name: siteName, message: msg });
+          const siteName = summary.site?.name || sel.text || String(siteId);
+          openConfirmModal('site', { id: siteId, name: siteName, summary: summary });
         } else {
-          openConfirmModal('site', { id: siteId, name: sel.text });
+          openConfirmModal('site', { id: siteId, name: sel.text, message: `Eliminar la sede "${sel.text}" (ID: ${siteId})` });
         }
       } catch (err) {
         console.error('delete-site error', err);
@@ -499,6 +487,7 @@
     if (deviceForm) deviceForm.addEventListener('submit', handleDeviceSubmit);
     [deviceClose, deviceCancel].forEach(btn => btn?.addEventListener('click', () => closeModal(deviceModal)));
   
+    
     // Conexión
     const connectionForm = document.getElementById('connection-form');
     const connectionModal = document.getElementById('connection-modal');
@@ -510,8 +499,10 @@
     const confirmModal = document.getElementById('confirm-modal');
     const confirmYes = document.getElementById('confirm-yes');
     const confirmNo = document.getElementById('confirm-no');
+    const confirmClose = document.getElementById('confirm-close');
     confirmYes?.addEventListener('click', handleConfirmYes);
     confirmNo?.addEventListener('click', () => closeModal(confirmModal));
+    confirmClose?.addEventListener('click', () => closeModal(confirmModal))
   
     const detailsModal = document.getElementById('details-modal');
     const detailsClose = document.getElementById('details-close');
@@ -1132,15 +1123,71 @@
 
   function openConfirmModal(type, item) {
     const modal = document.getElementById('confirm-modal');
-    const message = document.getElementById('confirm-message');
-    if (!modal || !message) return;
+    const titleEl = document.getElementById('confirm-title');
+    const summaryEl = document.getElementById('confirm-summary');
+    const descEl = document.getElementById('confirm-description');
+    if (!modal || !titleEl || !summaryEl || !descEl) return;
+  
+    summaryEl.innerHTML = '';
+    descEl.innerHTML = '';
+  
     const displayName = item && item.name ? `${item.name} (ID: ${item.id})` : String(item.id || '');
-    const defaultMsg = type === 'device' ? `¿Eliminar dispositivo ${displayName}?` :
-                     type === 'connection' ? `¿Eliminar conexión ${displayName}?` :
-                     `¿Eliminar sede ${displayName}?`;
-    message.textContent = (item && item.message) ? item.message : defaultMsg;
+  
+    if (type === 'site') titleEl.textContent = 'Confirmar eliminación de sede';
+    else if (type === 'device') titleEl.textContent = 'Confirmar eliminación de dispositivo';
+    else if (type === 'connection') titleEl.textContent = 'Confirmar eliminación de conexión';
+    else titleEl.textContent = 'Confirmar Acción';
+  
+    if (type === 'site' && item && item.summary && typeof item.summary === 'object') {
+      const s = item.summary;
+      const site = s.site || {};
+      const head = document.createElement('div');
+      head.className = 'confirm-head';
+      const hname = document.createElement('div');
+      hname.className = 'confirm-title-strong';
+      hname.textContent = `Eliminar "${site.name || displayName}"`;
+      head.appendChild(hname);
+      summaryEl.appendChild(head);
+  
+      const badges = document.createElement('div');
+      badges.className = 'confirm-badges';
+      const bDirect = document.createElement('div');
+      bDirect.className = 'confirm-badge confirm-badge--direct';
+      bDirect.textContent = `Directos: ${s.devices_direct || 0}`;
+      const bTree = document.createElement('div');
+      bTree.className = 'confirm-badge confirm-badge--tree';
+      bTree.textContent = `En árbol: ${s.devices_in_tree || 0}`;
+      const bChild = document.createElement('div');
+      bChild.className = 'confirm-badge confirm-badge--sites';
+      bChild.textContent = `Hijas directas: ${s.child_sites || 0}`;
+      const bDesc = document.createElement('div');
+      bDesc.className = 'confirm-badge confirm-badge--sites';
+      bDesc.textContent = `Descendientes: ${s.descendant_sites || 0}`;
+      badges.appendChild(bDirect);
+      badges.appendChild(bTree);
+      badges.appendChild(bChild);
+      badges.appendChild(bDesc);
+      summaryEl.appendChild(badges);
+  
+      const p = document.createElement('div');
+      p.className = 'confirm-description';
+      const direct = s.devices_direct || 0;
+      p.textContent = `Si confirma, los ${direct} dispositivo${direct === 1 ? '' : 's'} asignado${direct === 1 ? '' : 's'} DIRECTAMENTE a "${site.name || displayName}" quedarán sin sede (site_id = NULL). Las sedes hijas (si existen) mantendrán sus dispositivos.`;
+      descEl.appendChild(p);
+  
+    } else {
+      let text = item && item.message ? String(item.message) : `¿Eliminar ${displayName}?`;
+      const parts = text.split('\n');
+      parts.forEach((line, idx) => {
+        const tnode = document.createElement('div');
+        tnode.textContent = line;
+        descEl.appendChild(tnode);
+        if (idx < parts.length - 1) descEl.appendChild(document.createElement('br'));
+      });
+    }
+  
     modal.dataset.type = type;
-    modal.dataset.id = item.id;
+    modal.dataset.id = item && item.id ? item.id : '';
     modal.hidden = false;
     modal.setAttribute('aria-hidden', 'false');
   }

@@ -1051,3 +1051,66 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helv
   .search { width: 100%; max-width: 400px; }
   .toolbar .btn { padding: 8px; }
 }
+
+.confirm-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 6px 2px;
+}
+
+.confirm-summary {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  align-items: center;
+  background: linear-gradient(180deg, rgba(0,0,0,0.02), transparent);
+  border-radius: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+}
+
+@media (min-width: 520px) {
+  .confirm-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.confirm-badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.confirm-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.04);
+  color: var(--text);
+  border: 1px solid rgba(255,255,255,0.03);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.confirm-badge--direct { background: linear-gradient(180deg, #ffe9e9, #ffdede); color: var(--danger); border-color: rgba(222,37,32,0.12); }
+.confirm-badge--tree   { background: linear-gradient(180deg, #e8fff2, #dff8ea); color: var(--ok); border-color: rgba(45,178,122,0.10); }
+.confirm-badge--sites  { background: linear-gradient(180deg, #eaf6ff, #dbeeff); color: #236aa8; border-color: rgba(35,57,112,0.06); }
+
+.confirm-title-strong { font-weight: 700; margin-bottom: 4px; font-size: 14px; }
+
+.confirm-description {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.35;
+  padding: 8px 6px;
+  border-radius: 8px;
+  background: transparent;
+}
+
+@media (max-width: 520px) {
+  .form-actions { flex-direction: column-reverse; gap: 8px; }
+  .form-actions button { width: 100%; }
+}

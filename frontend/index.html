@@ -249,17 +249,24 @@
       </div>
     </div>
 
-<div class="modal" id="confirm-modal" aria-hidden="true" role="dialog" aria-labelledby="confirm-title" aria-modal="true" hidden>
-  <div class="modal-backdrop" data-close="modal"></div>
-  <div class="modal-dialog">
-    <h2 id="confirm-title">Confirmar Acción</h2>
-    <p id="confirm-message"></p>
-    <div class="form-actions">
-      <button type="button" class="btn btn--danger" id="confirm-yes">Sí</button>
-      <button type="button" class="btn" id="confirm-no">No</button>
+    <div class="modal" id="confirm-modal" aria-hidden="true" role="dialog" aria-labelledby="confirm-title" aria-modal="true" hidden>
+      <div class="modal-backdrop" data-close="modal"></div>
+      <div class="modal-dialog">
+        <button class="modal-close" id="confirm-close" aria-label="Cerrar">×</button>
+        <h2 id="confirm-title">Confirmar Acción</h2>
+    
+        <div id="confirm-body" class="confirm-body">
+          <div id="confirm-summary" class="confirm-summary" aria-live="polite"></div>
+          <div id="confirm-description" class="confirm-description" role="status"></div>
+        </div>
+    
+        <div class="form-actions" style="margin-top:12px;">
+          <button type="button" class="btn btn--danger" id="confirm-yes">Sí</button>
+          <button type="button" class="btn" id="confirm-no">No</button>
+        </div>
+      </div>
     </div>
-  </div>
-</div>
+    
   </header>
 
   <main class="app-main">
