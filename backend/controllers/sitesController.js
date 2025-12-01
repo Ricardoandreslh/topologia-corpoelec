@@ -30,7 +30,7 @@ async function create(req, res) {
     if (!body.network_id || !body.name) {
       return res.status(400).json({ error: 'network_id y name son requeridos' });
     }
-    const result = await Sites.createSite(body);  // Ahora acepta parent_id si se pasa en body
+    const result = await Sites.createSite(body);  
     return res.status(201).json({ id: result.id });
   } catch (err) {
     console.error('sites.create error', err);
@@ -44,7 +44,6 @@ async function update(req, res) {
     const body = req.body || {};
     const site = await Sites.getSiteById(id);
     if (!site) return res.status(404).json({ error: 'No encontrado' });
-    // Permitir actualizar parent_id
     const allowed = ['name', 'description', 'parent_id'];
     const fields = {};
     for (const k of allowed) {
@@ -72,4 +71,17 @@ async function remove(req, res) {
   }
 }
 
-module.exports = { list, getById, create, update, remove };
+async function summary(req, res) {
+  try {
+    const id = req.params.id;
+    if (!id) return res.status(400).json({ error: 'id requerido' });
+    const sum = await Sites.getSiteSummary(id);
+    if (!sum) return res.status(404).json({ error: 'No encontrado' });
+    return res.json({ data: sum });
+  } catch (err) {
+    console.error('sites.summary error', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+}
+
+module.exports = { list, getById, create, update, remove, summary };

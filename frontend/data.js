@@ -193,11 +193,18 @@
     return res.json();
   }
 
+  async function getSiteSummary(id) {
+    if (!id) throw new Error('site id requerido');
+    const json = await fetchJson(`/sites/${encodeURIComponent(id)}/summary`);
+    return json.data || null;
+  }
+
   global.API = { getDevices, getConnections, getGraph, 
     createDevice, updateDevice, deleteDevice, 
     createConnection, updateConnection, deleteConnection, 
     getDevice, getConnection, getPorts, 
     upsertPorts, getSites,
-    createSite, updateSite, deleteSite
+    createSite, updateSite, deleteSite,
+    getSiteSummary
   };
 })(window);

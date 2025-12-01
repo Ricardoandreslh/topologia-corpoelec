@@ -142,32 +142,25 @@
         <button id="delete-site" class="btn btn--danger" title="Eliminar Sede">Eliminar Sede</button>
       </div>
       <div id="site-tree"></div>
-      <!-- NUEVO: Toggle para conexiones inter-sede -->
       <label style="margin-top: 10px; display: block;">
         <input type="checkbox" id="show-inter-site" checked> Mostrar conexiones inter-sede
       </label>
     `;
-    
-
+  
     panel.style.backgroundColor = 'var(--surface-1)'; 
     panel.style.border = '1px solid var(--border)';
     panel.style.borderRadius = '8px';
     panel.style.padding = '10px';
-    
+  
     const main = document.querySelector('.app-main');
-    main.insertBefore(panel, main.firstElementChild); 
-    
-    // Función para (re)construir el árbol con los datos de API
+    main.insertBefore(panel, main.firstElementChild);
+  
+    // (re)construir el árbol
     async function reloadTree(selectedSiteId = null) {
       try {
         const sites = await API.getSites(networkId);
         const treeData = [
-          {
-            id: 'general',
-            text: 'General',
-            parent: '#',
-            data: { site_id: null }
-          },
+          { id: 'general', text: 'General', parent: '#', data: { site_id: null } },
           ...sites.map(s => ({
             id: s.id.toString(),
             text: s.name,
@@ -175,72 +168,118 @@
             data: { site_id: s.id }
           }))
         ];
-
-        try {
-          const inst = $('#site-tree').jstree(true);
-          if (inst) {
-            $('#site-tree').jstree('destroy');
-          }
-        } catch (e) {}
-
+  
+        try { const inst = $('#site-tree').jstree(true); if (inst) $('#site-tree').jstree('destroy'); } catch (_) {}
+  
         $('#site-tree').jstree({
-          core: {
-            data: treeData,
-            themes: { responsive: true }
-          },
+          core: { data: treeData, themes: { responsive: true } },
           plugins: ['types', 'state', 'search'],
-          types: {
-            default: { icon: 'jstree-folder' }, 
-            leaf: { icon: 'jstree-file' }  
-          },
+          types: { default: { icon: 'jstree-folder' }, leaf: { icon: 'jstree-file' } },
           state: { key: 'site-tree' }
         });
-
+  
         $('#site-tree').on('ready.jstree', function() {
           $('#site-tree').jstree('open_all');
           if (selectedSiteId) {
-            try {
-              $('#site-tree').jstree('select_node', String(selectedSiteId));
-            } catch (_) {}
+            try { $('#site-tree').jstree('select_node', String(selectedSiteId)); } catch (_) {}
           }
         });
-        
-        $('#site-tree').off('select_node'); // quitar listeners previos
+  
+        $('#site-tree').off('select_node');
         $('#site-tree').on('select_node.jstree', function(e, data) {
-          const selectedId = data.node.data.site_id; 
+          const selectedId = data.node.data.site_id;
           GRAPH_CACHE.clear();
           const showInter = document.getElementById('show-inter-site').checked;
           loadGraphFor(getCurrentView(), selectedId, { showInterSite: showInter });
         });
-
+  
       } catch (err) {
         console.error('Error cargando sedes:', err);
         alert('Error cargando sedes: ' + (err?.message || 'desconocido'));
       }
     }
-
-    // Inicializar árbol por primera vez
+  
+    // Inicial
     reloadTree();
-
-    // Botones agregar / editar / eliminar
-    document.getElementById('add-site').addEventListener('click', async () => {
+  
+    async function openSiteModal(mode = 'create', site = null) {
+      const modal = document.getElementById('site-modal');
+      const form = document.getElementById('site-form');
+      const title = document.getElementById('site-title');
+      const nameEl = document.getElementById('site-name');
+      const descEl = document.getElementById('site-description');
+      const idEl = document.getElementById('site-id');
+      const parentHidden = document.getElementById('site-parent-hidden');
+      const parentTree = document.getElementById('site-parent-tree');
+      const parentSearch = document.getElementById('site-parent-search');
+      const errorBox = document.getElementById('site-error');
+  
+      errorBox.hidden = true; errorBox.textContent = '';
       try {
-        const inst = $('#site-tree').jstree(true);
-        const sel = inst ? inst.get_selected(true)[0] : null;
-        const parentId = (sel && sel.data && sel.data.site_id) ? sel.data.site_id : null;
-        const defaultName = parentId ? `Nueva sede hija de ${sel.text}` : 'Nueva Sede';
-        const name = prompt('Nombre de la nueva sede:', defaultName);
-        if (!name) return;
-        const payload = { network_id: Number(networkId), name: name.trim(), parent_id: parentId || null };
-        await API.createSite(payload);
-        await reloadTree();
-        setStatus('Sede creada', false);
+        const sites = await API.getSites(networkId);
+        const excludeId = site ? String(site.id) : null;
+        const treeData = [
+          { id: 'none', text: '(ninguno)', parent: '#', data: { site_id: null } },
+          ...sites
+            .filter(s => String(s.id) !== excludeId)
+            .map(s => ({ id: String(s.id), text: s.name, parent: s.parent_id ? String(s.parent_id) : '#', data: { site_id: s.id } }))
+        ];
+  
+        try { const inst = $('#site-parent-tree').jstree(true); if (inst) $('#site-parent-tree').jstree('destroy'); } catch (_) {}
+  
+        $('#site-parent-tree').jstree({
+          core: { data: treeData, themes: { responsive: true } },
+          plugins: ['search'],
+          search: { show_only_matches: true, show_only_matches_children: true }
+        });
+  
+        parentSearch.addEventListener('keyup', function() { $('#site-parent-tree').jstree('search', this.value); });
+  
+        $('#site-parent-tree').off('select_node');
+        $('#site-parent-tree').on('select_node.jstree', function(_e, data) {
+          const id = data.node && data.node.id;
+          if (!id || id === 'none') parentHidden.value = '';
+          else parentHidden.value = id;
+        });
+  
       } catch (err) {
-        console.error('create site error', err);
-        alert('Error creando sede: ' + (err?.message || err));
+        console.error('openSiteModal load sites error', err);
+        alert('No se pudieron cargar las sedes. Intenta más tarde.');
+        return;
       }
+  
+      if (mode === 'create') {
+        title.textContent = 'Agregar Sede';
+        idEl.value = '';
+        nameEl.value = '';
+        descEl.value = '';
+        parentHidden.value = '';
+        try { $('#site-parent-tree').one('ready.jstree', function() { $('#site-parent-tree').jstree('select_node', 'none'); }); } catch (_) {}
+      } else {
+        title.textContent = 'Editar Sede';
+        idEl.value = site.id;
+        nameEl.value = site.name || '';
+        descEl.value = site.description || '';
+        parentHidden.value = site.parent_id || '';
+        try {
+          $('#site-parent-tree').one('ready.jstree', function() {
+            if (site.parent_id) {
+              try { $('#site-parent-tree').jstree('select_node', String(site.parent_id)); } catch (_) {}
+            } else {
+              try { $('#site-parent-tree').jstree('select_node', 'none'); } catch (_) {}
+            }
+          });
+        } catch (_) {}
+      }
+  
+      form.dataset.mode = mode;
+      if (modal) { modal.hidden = false; modal.setAttribute('aria-hidden', 'false'); }
+    }
+  
+    document.getElementById('add-site').addEventListener('click', async () => {
+      await openSiteModal('create', null);
     });
-
+  
     document.getElementById('edit-site').addEventListener('click', async () => {
       try {
         const inst = $('#site-tree').jstree(true);
@@ -250,17 +289,21 @@
           return;
         }
         const siteId = sel.data.site_id;
-        const newName = prompt('Nuevo nombre de la sede:', sel.text);
-        if (!newName) return;
-        await API.updateSite(siteId, { name: newName.trim() });
-        await reloadTree(siteId);
-        setStatus('Sede actualizada', false);
+        const site = await (async () => {
+          try {
+            const json = await fetch(`/api/sites/${encodeURIComponent(siteId)}`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken') || ''}` }});
+            if (!json.ok) return null;
+            const j = await json.json();
+            return j.data || null;
+          } catch (e) { return null; }
+        })();
+        await openSiteModal('edit', site || { id: siteId, name: sel.text, parent_id: null });
       } catch (err) {
-        console.error('update site error', err);
-        alert('Error actualizando sede: ' + (err?.message || err));
+        console.error('edit-site error', err);
+        alert('Error preparando edición de sede: ' + (err?.message || err));
       }
     });
-
+  
     document.getElementById('delete-site').addEventListener('click', async () => {
       try {
         const inst = $('#site-tree').jstree(true);
@@ -270,16 +313,88 @@
           return;
         }
         const siteId = sel.data.site_id;
-        if (!confirm(`¿Eliminar la sede "${sel.text}"? Esto puede mover/afectar dispositivos.`)) return;
-        await API.deleteSite(siteId);
-        await reloadTree();
-        setStatus('Sede eliminada', false);
+        let summary = null;
+        try {
+          summary = await API.getSiteSummary(siteId);
+        } catch (err) {
+          console.warn('No se pudo obtener resumen de la sede:', err);
+        }
+    
+        if (summary) {
+          const s = summary;
+          const siteName = s.site?.name || sel.text || String(siteId);
+          const direct = s.devices_direct || 0;
+          const inTree = s.devices_in_tree || 0;
+          const child = s.child_sites || 0;
+          const descendants = s.descendant_sites || 0;
+          let msg = `Eliminar la sede "${siteName}" (ID: ${siteId}).\n\n` +
+                    `• Dispositivos actualmente asignados a esta sede: ${direct}.\n` +
+                    `• Dispositivos en toda la jerarquía (sede + descendientes): ${inTree}.\n` +
+                    `• Sedes hijas directas: ${child}.\n` +
+                    `• Sedes descendientes totales: ${descendants}.\n\n` +
+                    `Si confirma, los ${direct} dispositivos asignados DIRECTAMENTE a "${siteName}" quedarán sin sede (se les asignará NULL). ` +
+                    `Las sedes hijas (si existen) mantendrán sus dispositivos. ¿Desea continuar?`;
+          openConfirmModal('site', { id: siteId, name: siteName, message: msg });
+        } else {
+          openConfirmModal('site', { id: siteId, name: sel.text });
+        }
       } catch (err) {
-        console.error('delete site error', err);
-        alert('Error eliminando sede: ' + (err?.message || err));
+        console.error('delete-site error', err);
+        alert('Error intentando eliminar sede: ' + (err?.message || err));
       }
     });
 
+    document.addEventListener('submit', async function(e) {
+      if (e.target && e.target.id === 'site-form') {
+        e.preventDefault();
+        const form = e.target;
+        const mode = form.dataset.mode || 'create';
+        const id = document.getElementById('site-id').value;
+        const name = document.getElementById('site-name').value.trim();
+        const description = document.getElementById('site-description').value.trim() || null;
+        const parentVal = document.getElementById('site-parent-hidden').value;
+        const parent_id = parentVal ? Number(parentVal) : null;
+        const errorBox = document.getElementById('site-error');
+        errorBox.hidden = true; errorBox.textContent = '';
+  
+        if (!name) {
+          errorBox.hidden = false;
+          errorBox.textContent = 'El nombre de la sede es requerido.';
+          return;
+        }
+  
+        try {
+          if (mode === 'create') {
+            await API.createSite({ network_id: Number(networkId), name: name, description: description, parent_id: parent_id });
+            setStatus('Sede creada', false);
+          } else {
+            await API.updateSite(id, { name: name, description: description, parent_id: parent_id });
+            setStatus('Sede actualizada', false);
+          }
+          const modal = document.getElementById('site-modal');
+          if (modal) { modal.hidden = true; modal.setAttribute('aria-hidden', 'true'); }
+          await reloadTree(mode === 'create' ? null : id);
+        } catch (err) {
+          console.error('site submit error', err);
+          let msg = (err && err.message) ? err.message : String(err);
+          try {
+            msg = msg.replace(/^"|"$/g, '');
+          } catch (_) {}
+          errorBox.hidden = false;
+          errorBox.textContent = msg || 'Error en la operación.';
+        }
+      }
+    });
+  
+    document.getElementById('site-cancel').addEventListener('click', () => {
+      const modal = document.getElementById('site-modal');
+      if (modal) { modal.hidden = true; modal.setAttribute('aria-hidden', 'true'); }
+    });
+    document.getElementById('site-close').addEventListener('click', () => {
+      const modal = document.getElementById('site-modal');
+      if (modal) { modal.hidden = true; modal.setAttribute('aria-hidden', 'true'); }
+    });
+  
     document.getElementById('show-inter-site').addEventListener('change', (e) => {
       GRAPH_CACHE.clear();
       const showInter = e.target.checked;
@@ -316,7 +431,6 @@
         };
       }));
 
-      // Preparar edges: incluir VLANs y nombres de puertos si existen
       const edgesData = (projected.edges || []).map(e => {
         const vlanVal = Array.isArray(e.vlan) ? e.vlan.join(',') : (e.vlan || '');
         return {
@@ -1020,7 +1134,11 @@
     const modal = document.getElementById('confirm-modal');
     const message = document.getElementById('confirm-message');
     if (!modal || !message) return;
-    message.textContent = `¿Eliminar ${type === 'device' ? 'dispositivo' : 'conexión'} ${item.id}?`;
+    const displayName = item && item.name ? `${item.name} (ID: ${item.id})` : String(item.id || '');
+    const defaultMsg = type === 'device' ? `¿Eliminar dispositivo ${displayName}?` :
+                     type === 'connection' ? `¿Eliminar conexión ${displayName}?` :
+                     `¿Eliminar sede ${displayName}?`;
+    message.textContent = (item && item.message) ? item.message : defaultMsg;
     modal.dataset.type = type;
     modal.dataset.id = item.id;
     modal.hidden = false;
@@ -1033,12 +1151,14 @@
     const id = modal?.dataset?.id;
     try {
       if (type === 'device') await API.deleteDevice(id);
-      else await API.deleteConnection(id);
+      else if (type === 'connection') await API.deleteConnection(id);
+      else if (type === 'site') await API.deleteSite(id);
       GRAPH_CACHE.clear();
-      await loadGraphFor(getCurrentView(), getCurrentSiteId())
+      await loadGraphFor(getCurrentView(), getCurrentSiteId());
+      // cerrar confirm modal
       closeModal(modal);
     } catch (err) {
-      alert('Error: ' + err.message);
+      alert('Error: ' + (err?.message || err));
     }
   }
   

@@ -215,6 +215,40 @@
       </div>
     </div>
 
+
+    <div class="modal" id="site-modal" aria-hidden="true" role="dialog" aria-labelledby="site-title" aria-modal="true" hidden>
+      <div class="modal-backdrop" data-close="modal"></div>
+      <div class="modal-dialog">
+        <button class="modal-close" id="site-close" aria-label="Cerrar">×</button>
+        <h2 id="site-title">Agregar/Editar Sede</h2>
+        <form id="site-form" autocomplete="off">
+          <input type="hidden" id="site-id" />
+          <div class="form-group">
+            <label for="site-name">Nombre</label>
+            <input id="site-name" name="name" required />
+          </div>
+          <div class="form-group form-group--full">
+            <label for="site-description">Descripción</label>
+            <textarea id="site-description" rows="4" maxlength="1000" placeholder="Descripción (opcional)"></textarea>
+          </div>
+    
+          <div id="site-parent-container" class="form-group form-group--full">
+            <label for="site-parent-search">Padre (seleccionar sede padre, opcional)</label>
+            <input id="site-parent-search" type="text" placeholder="Buscar sede..." />
+            <div id="site-parent-tree" style="margin-top:8px; border:1px solid var(--border); border-radius:8px; background:var(--surface-2); padding:8px; max-height:220px; overflow:auto;"></div>
+            <input type="hidden" id="site-parent-hidden" name="parent_id" />
+          </div>
+    
+          <div id="site-error" class="form-error" role="alert" hidden style="margin-top:10px;"></div>
+    
+          <div class="form-actions">
+            <button type="submit" class="btn btn--primary" id="site-submit">Guardar</button>
+            <button type="button" class="btn" id="site-cancel">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
 <div class="modal" id="confirm-modal" aria-hidden="true" role="dialog" aria-labelledby="confirm-title" aria-modal="true" hidden>
   <div class="modal-backdrop" data-close="modal"></div>
   <div class="modal-dialog">
