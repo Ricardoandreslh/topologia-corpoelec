@@ -1356,14 +1356,128 @@ function getActiveContainerId() {
       const user = Auth.getUser() || {};
       if (user.username) {
         badge.textContent = user.username + (user.role ? ' (' + user.role + ')' : '');
-        badge.title = 'Sesión activa';
+        badge.title = 'Sesión activa — hacer clic para ver sesiones';
+        badge.style.cursor = 'pointer';
+        badge.addEventListener('click', (e) => {
+          e.preventDefault();
+          openSessionsModal();
+        });
       } else {
         badge.textContent = 'Usuario';
       }
     } catch (_) { badge.textContent = 'Usuario'; }
   }
 
+
+  function openSessionsModal() {
+    const existing = document.getElementById('sessions-modal');
+    if (existing) {
+      existing.hidden = false;
+      existing.setAttribute('aria-hidden', 'false');
+      return;
+    }
+  
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.id = 'sessions-modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.hidden = true;
+  
+    modal.innerHTML = `
+      <div class="modal-backdrop"></div>
+      <div class="modal-dialog" style="min-width:420px; max-width:720px;">
+        <button class="modal-close" id="sessions-close" aria-label="Cerrar">×</button>
+        <h2>Sesiones activas</h2>
+        <div id="sessions-list" style="max-height:360px; overflow:auto; margin-top:8px;"></div>
+        <div style="margin-top:12px; display:flex; gap:8px; justify-content: flex-end;">
+          <button id="revoke-all-sessions" class="btn btn--danger">Cerrar todas</button>
+          <button id="sessions-dismiss" class="btn">Cerrar</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  
+    async function loadSessions() {
+      const list = document.getElementById('sessions-list');
+      list.innerHTML = '<div style="color:var(--muted)">Cargando…</div>';
+      try {
+        const sessions = await Auth.getSessions();
+        if (!sessions || sessions.length === 0) {
+          list.innerHTML = '<div style="color:var(--muted)">No hay sesiones activas</div>';
+          return;
+        }
+        const rows = sessions.map(s => {
+          const created = s.created_at || s.createdAt || '';
+          const expires = s.expires_at || s.expiresAt || '';
+          const ua = s.user_agent || s.userAgent || '';
+          const ip = s.ip || '';
+          return `
+            <div class="session-row" data-id="${s.id}" style="display:flex; justify-content:space-between; gap:12px; padding:8px; border-bottom:1px solid var(--border)">
+              <div style="flex:1">
+                <div style="font-weight:700">${escapeHtml(ua || 'Agente desconocido')}</div>
+                <div style="font-size:13px; color:var(--muted)">${escapeHtml(ip)} • Creado: ${escapeHtml(created)} ${expires ? '• Expira: ' + escapeHtml(expires) : ''}</div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+                <button class="btn revoke-session" data-id="${s.id}" style="padding:6px 10px;">Revocar</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+        list.innerHTML = rows;
+        Array.from(list.querySelectorAll('.revoke-session')).forEach(btn => {
+          btn.addEventListener('click', async (ev) => {
+            const id = btn.dataset.id;
+            if (!confirm('Revocar esta sesión?')) return;
+            try {
+              await Auth.revokeSessionById(id);
+              btn.textContent = 'Revocada';
+              btn.disabled = true;
+              const row = btn.closest('.session-row');
+              if (row) row.remove();
+            } catch (e) {
+              alert('No se pudo revocar: ' + (e.message || e));
+            }
+          });
+        });
+      } catch (err) {
+        list.innerHTML = '<div style="color:var(--danger)">Error cargando sesiones</div>';
+      }
+    }
+  
+    modal.querySelector('.modal-backdrop').addEventListener('click', () => {
+      modal.hidden = true;
+      modal.setAttribute('aria-hidden', 'true');
+    });
+    modal.querySelector('#sessions-dismiss').addEventListener('click', () => {
+      modal.hidden = true;
+      modal.setAttribute('aria-hidden', 'true');
+    });
+    modal.querySelector('#sessions-close').addEventListener('click', () => {
+      modal.hidden = true;
+      modal.setAttribute('aria-hidden', 'true');
+    });
+    modal.querySelector('#revoke-all-sessions').addEventListener('click', async () => {
+      if (!confirm('Cerrar TODAS las sesiones de este usuario? Esto forzará a re-login en todos los dispositivos.')) return;
+      try {
+        await Auth.revokeAllSessions();
+        alert('Todas las sesiones han sido revocadas.');
+        modal.hidden = true;
+        modal.setAttribute('aria-hidden', 'true');
+      } catch (e) {
+        alert('No se pudieron revocar todas las sesiones: ' + (e.message || e));
+      }
+    });
+  
+    modal.hidden = false;
+    modal.setAttribute('aria-hidden', 'false');
+    loadSessions();
+  }
+
   initSitePanel();
+
+
+  
 
   function bindTabsSafely() {
     const rWifi = document.getElementById('tab-wifi');

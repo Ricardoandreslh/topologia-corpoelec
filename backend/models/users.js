@@ -44,6 +44,10 @@ async function setStatus(id, status) {
   await getPool().execute('UPDATE users SET status=? WHERE id=?', [status, id]);
 }
 
+async function setPasswordHash(id, newHash) {
+  await getPool().execute('UPDATE users SET password_hash=?, updated_at=NOW() WHERE id=?', [newHash, id]);
+}
+
 module.exports = {
   createUserWithPassword,
   createUserWithHash,
@@ -51,5 +55,6 @@ module.exports = {
   findById,
   verifyPassword,
   updateLastLogin,
-  setStatus
+  setStatus,
+  setPasswordHash
 };
