@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 01-12-2025 a las 14:43:18
+-- Tiempo de generación: 02-12-2025 a las 16:55:38
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -20,6 +20,63 @@ SET time_zone = "+00:00";
 --
 -- Base de datos: `topologia`
 --
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `audit_logs`
+--
+
+CREATE TABLE `audit_logs` (
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `action` varchar(80) NOT NULL,
+  `resource_type` varchar(80) NOT NULL,
+  `resource_id` bigint(20) DEFAULT NULL,
+  `payload` longtext DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Volcado de datos para la tabla `audit_logs`
+--
+
+INSERT INTO `audit_logs` (`id`, `user_id`, `action`, `resource_type`, `resource_id`, `payload`, `created_at`) VALUES
+(1, 1, 'create', 'site', 14, '{\"network_id\":1,\"name\":\"DASDAS\",\"description\":null,\"parent_id\":13}', '2025-12-01 14:59:08'),
+(2, 1, 'delete', 'site', 14, '{\"name\":\"DASDAS\",\"parent_id\":13}', '2025-12-01 14:59:22');
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `blacklisted_tokens`
+--
+
+CREATE TABLE `blacklisted_tokens` (
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `access_hash` varchar(128) NOT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `expires_at` datetime DEFAULT NULL,
+  `reason` varchar(255) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Volcado de datos para la tabla `blacklisted_tokens`
+--
+
+INSERT INTO `blacklisted_tokens` (`id`, `access_hash`, `user_id`, `expires_at`, `reason`, `created_at`) VALUES
+(1, 'b864c812be136ef1cb7c811d9c7b8b97bf81620a3d181c4b1472d4a6b02573c3', 3, '2025-12-02 03:11:57', 'logout', '2025-12-01 15:12:00'),
+(2, '75fdb2d80f86ee943fa5abb400d63268c2c3f98736b57dcf14e2aa7857d93d17', 1, '2025-12-02 03:12:46', 'logout', '2025-12-01 15:12:55'),
+(3, '844b0512da79aa041e46ef18ad9ee859442862ed817f180e00f9dc2c20aa58ef', 3, '2025-12-02 03:16:26', 'logout', '2025-12-01 15:16:35'),
+(4, 'db26b75a38641615d6c8afdb3f129b67f2bdf02b64192f078dd945c5a6a0ee45', 3, '2025-12-02 03:17:55', 'logout', '2025-12-01 15:32:30'),
+(5, '0fb166e8d5e8cf600cb93ec690aec084c5ba0efb97f512339a1d13548e97dbfe', 1, '2025-12-02 03:32:33', 'logout', '2025-12-01 15:33:09'),
+(6, 'ac7e31c8cbfcd117a61f3c8353dc095f4578322fc79e3c279eee3aa6dea17d33', 3, '2025-12-02 03:33:10', 'logout', '2025-12-01 15:33:14'),
+(7, '39711f9298dc2e5d3e00fd3409164d490f2d4ee698abf4a493bcbc2123e23015', 1, '2025-12-02 03:33:18', 'logout', '2025-12-01 15:33:39'),
+(8, '162b0fb0a5ff5d2cc17f3f63a3139af1d4e4e754d72dd8f2c018127725abc74e', 3, '2025-12-02 03:34:10', 'logout', '2025-12-01 15:37:33'),
+(9, '839b183da8511671affb96fa7ce65d5e4218b58284c0ea46dcdea88a0538774e', 1, '2025-12-02 03:33:51', 'logout', '2025-12-01 15:50:12'),
+(10, '684a3a726a267d18b275b2425739da85c19d372cbb183e5778a79f75c0bcb289', 1, '2025-12-02 03:57:44', 'logout', '2025-12-01 15:57:53'),
+(11, 'd90a64c314e5327dbc390c114babe5ae75e238daf7ea6eb849eebc2933d578fd', 1, '2025-12-02 22:47:04', 'logout', '2025-12-02 10:47:12'),
+(12, '62670cbc6f805edbe2301d8c959e7e9c22fac52e7191ea634e387d20253b6741', 1, '2025-12-02 22:53:17', 'logout', '2025-12-02 10:53:20');
 
 -- --------------------------------------------------------
 
@@ -382,7 +439,37 @@ INSERT INTO `login_attempts` (`id`, `user_id`, `username`, `ip`, `success`, `cre
 (209, 1, 'admin', '::1', 1, '2025-11-24 13:11:55'),
 (210, 1, 'admin', '::1', 1, '2025-11-28 18:00:35'),
 (211, 1, 'admin', '::1', 1, '2025-11-28 18:00:41'),
-(212, 1, 'admin', '::1', 1, '2025-12-01 13:38:48');
+(212, 1, 'admin', '::1', 1, '2025-12-01 13:38:48'),
+(213, 3, 'normal', '::1', 1, '2025-12-01 13:45:40'),
+(214, 1, 'admin', '::1', 1, '2025-12-01 13:45:52'),
+(215, 3, 'normal', '::ffff:127.0.0.1', 1, '2025-12-01 18:17:44'),
+(216, 1, 'admin', '::1', 1, '2025-12-01 18:18:31'),
+(217, 1, 'admin', '::1', 1, '2025-12-01 18:18:53'),
+(218, 1, 'admin', '::1', 1, '2025-12-01 18:20:49'),
+(219, 1, 'admin', '::1', 1, '2025-12-01 18:21:38'),
+(220, 1, 'admin', '::1', 1, '2025-12-01 18:30:00'),
+(221, 1, 'admin', '::1', 1, '2025-12-01 18:30:34'),
+(222, 1, 'admin', '::1', 1, '2025-12-01 18:31:17'),
+(223, 1, 'admin', '::1', 1, '2025-12-01 18:33:59'),
+(224, 1, 'admin', '::1', 1, '2025-12-01 18:56:58'),
+(225, 1, 'admin', '::1', 1, '2025-12-01 18:57:56'),
+(226, 1, 'admin', '::1', 1, '2025-12-01 18:58:54'),
+(227, 3, 'normal', '::1', 1, '2025-12-01 19:01:45'),
+(228, 1, 'admin', '::1', 1, '2025-12-01 19:09:40'),
+(229, 3, 'normal', '::1', 1, '2025-12-01 19:10:03'),
+(230, 3, 'normal', '::1', 1, '2025-12-01 19:11:57'),
+(231, 1, 'admin', '::1', 1, '2025-12-01 19:12:46'),
+(232, 3, 'normal', '::1', 1, '2025-12-01 19:16:26'),
+(233, 3, 'normal', '::1', 1, '2025-12-01 19:17:54'),
+(234, 1, 'admin', '::1', 1, '2025-12-01 19:32:33'),
+(235, 3, 'normal', '::1', 1, '2025-12-01 19:33:10'),
+(236, 1, 'admin', '::1', 1, '2025-12-01 19:33:17'),
+(237, 1, 'admin', '::1', 1, '2025-12-01 19:33:51'),
+(238, 3, 'normal', '::1', 1, '2025-12-01 19:34:10'),
+(239, 1, 'admin', '::1', 1, '2025-12-01 19:49:26'),
+(240, 1, 'admin', '::1', 1, '2025-12-01 19:57:43'),
+(241, 1, 'admin', '::1', 1, '2025-12-02 14:47:04'),
+(242, 1, 'admin', '::1', 1, '2025-12-02 14:53:17');
 
 -- --------------------------------------------------------
 
@@ -685,7 +772,8 @@ INSERT INTO `sites` (`id`, `network_id`, `parent_id`, `name`, `description`, `cr
 (1, 1, NULL, 'Sede Principal', 'Ubicación central', '2025-11-06 17:10:50'),
 (2, 1, 1, 'Torre Union', 'Zona norte', '2025-11-06 17:10:50'),
 (4, 1, 2, 'Piso 1', NULL, '2025-11-06 18:21:19'),
-(5, 1, 2, 'Piso 5', 'Torre Union', '2025-11-12 16:29:27');
+(5, 1, 2, 'Piso 5', 'Torre Union', '2025-11-12 16:29:27'),
+(13, 1, NULL, 'Trujillo', NULL, '2025-12-01 16:19:23');
 
 -- --------------------------------------------------------
 
@@ -711,8 +799,8 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `username`, `email`, `password_hash`, `role_id`, `status`, `last_login`, `created_at`, `updated_at`, `is_active`) VALUES
-(1, 'admin', 'admin@local', '$2b$10$xBCl/od4qYezgJ939oUcK.qfW/h2vr.dKZJBXfAuvRxi6rxWc/Rw.', 1, 'active', '2025-12-01 13:38:48', '2025-10-14 17:51:23', '2025-12-01 13:38:48', 1),
-(3, 'normal', 'normal@local', '$2b$10$vJNZ4QVQyem5iZ/Xs5DiyuuW.Qnz22ZpiaUDswy9FlWnswleZvm0O', 2, 'active', '2025-10-31 14:34:05', '2025-10-22 14:03:03', '2025-10-31 14:34:05', 1);
+(1, 'admin', 'admin@local', '$2b$10$xBCl/od4qYezgJ939oUcK.qfW/h2vr.dKZJBXfAuvRxi6rxWc/Rw.', 1, 'active', '2025-12-02 14:53:17', '2025-10-14 17:51:23', '2025-12-02 14:53:17', 1),
+(3, 'normal', 'normal@local', '$2b$10$vJNZ4QVQyem5iZ/Xs5DiyuuW.Qnz22ZpiaUDswy9FlWnswleZvm0O', 2, 'active', '2025-12-01 19:34:10', '2025-10-22 14:03:03', '2025-12-01 19:34:10', 1);
 
 -- --------------------------------------------------------
 
@@ -745,6 +833,19 @@ CREATE TABLE `view_backgrounds` (
 --
 -- Índices para tablas volcadas
 --
+
+--
+-- Indices de la tabla `audit_logs`
+--
+ALTER TABLE `audit_logs`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indices de la tabla `blacklisted_tokens`
+--
+ALTER TABLE `blacklisted_tokens`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uq_access_hash` (`access_hash`);
 
 --
 -- Indices de la tabla `connections`
@@ -866,6 +967,18 @@ ALTER TABLE `view_backgrounds`
 --
 
 --
+-- AUTO_INCREMENT de la tabla `audit_logs`
+--
+ALTER TABLE `audit_logs`
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
+-- AUTO_INCREMENT de la tabla `blacklisted_tokens`
+--
+ALTER TABLE `blacklisted_tokens`
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+
+--
 -- AUTO_INCREMENT de la tabla `connections`
 --
 ALTER TABLE `connections`
@@ -893,7 +1006,7 @@ ALTER TABLE `images`
 -- AUTO_INCREMENT de la tabla `login_attempts`
 --
 ALTER TABLE `login_attempts`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=213;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=243;
 
 --
 -- AUTO_INCREMENT de la tabla `networks`
@@ -923,13 +1036,13 @@ ALTER TABLE `roles`
 -- AUTO_INCREMENT de la tabla `sessions`
 --
 ALTER TABLE `sessions`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
 
 --
 -- AUTO_INCREMENT de la tabla `sites`
 --
 ALTER TABLE `sites`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
 -- AUTO_INCREMENT de la tabla `users`
