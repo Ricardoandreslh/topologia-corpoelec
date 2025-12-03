@@ -117,7 +117,7 @@
     return base;
   }
 
-  function mapElements(graph) {
+  function mapElements(graph, siteId) {
     const nodeVlanMap = {}; 
   
     (graph.edges || []).forEach(e => {
@@ -139,7 +139,21 @@
       if (n.metadata) {
         try { meta = typeof n.metadata === 'string' ? JSON.parse(n.metadata) : n.metadata; } catch (e) { meta = {}; }
       }
-      const p = meta.pos || meta.position || (hasNum(n.x) && hasNum(n.y) ? { x: n.x, y: n.y } : null);
+      let p = null;
+      try {
+        if (siteId) {
+          const k = `pos_site_${siteId}`;
+          if (meta && meta[k] && hasNum(meta[k].x) && hasNum(meta[k].y)) {
+            p = { x: Number(meta[k].x), y: Number(meta[k].y) };
+          }
+        }
+      } catch (e) { /* IGNORAR */ }
+      if (!p) {
+        if (meta && meta.pos && hasNum(meta.pos.x) && hasNum(meta.pos.y)) p = { x: Number(meta.pos.x), y: Number(meta.pos.y) };
+        else if (meta && meta.position && hasNum(meta.position.x) && hasNum(meta.position.y)) p = { x: Number(meta.position.x), y: Number(meta.position.y) };
+        else if (hasNum(n.x) && hasNum(n.y)) p = { x: Number(n.x), y: Number(n.y) };
+      }
+
       const portsArr = Array.isArray(n.ports) ? n.ports : [];
       const derivedSummary = { total: portsArr.length, used: portsArr.filter(p => p.connected === true).length };
       const finalSummary = n.ports_summary || (portsArr.length ? derivedSummary : { total: 0, used: 0 });
@@ -175,7 +189,15 @@
       const vlanStr = arr.length ? arr.join(',') : null;
       const vlanKey = arr.length ? arr[0] : null;
       const linkType = e.type || 'ethernet';
-      const label = vlanStr ? `${linkType} • VLAN ${vlanStr}` : linkType;
+      const aName = e.a_port_name || '';
+      const bName = e.b_port_name || '';
+      let label = '';
+      if (aName || bName) {
+        label = `${aName || 'Puerto A'}---${linkType}---${bName || 'Puerto B'}`;
+        if (vlanStr) label += ` • VLAN ${vlanStr}`;
+      } else {
+        label = vlanStr ? `${linkType} • VLAN ${vlanStr}` : linkType;
+      }
       return {
         group: 'edges',
         data: {
@@ -571,26 +593,32 @@
   function renderGraph(graph, opts = {}) {  
     const containerId = opts.containerId || 'canvas';
     const viewType = opts.viewType || 'all';
+    const siteId = opts.siteId || null;
     const cy = ensure(containerId);
     if (!cy) return;
   
-    const elements = mapElements(graph);
+    const elements = mapElements(graph, siteId);
     cy.stop();
     cy.elements().remove();
     cy.add(elements.nodes);
     cy.add(elements.edges);
   
+    const nodesWithoutPos = [];
+    try {
+      (elements.nodes || []).forEach(n => {
+        if (!n.data || !n.data._hasPos) {
+          nodesWithoutPos.push(String(n.data.id));
+        }
+      });
+    } catch (e) { /* ignore */ }
+
     const layout = layoutFor(elements, viewType);
     const layoutInstance = cy.layout(layout);
     
-    const nodesWithoutPos = [];
-
-
     layoutInstance.run();
 
     const onLayoutStop = async () => {
       try {
-        const siteId = opts.siteId;
         const posKey = siteId ? `pos_site_${siteId}` : 'pos';
         for (const nid of nodesWithoutPos) {
           try {
@@ -634,7 +662,7 @@
       network_id: graph.network_id, 
       kind: graph.kind || 'all',
       viewType: viewType,
-      siteId: opts.siteId 
+      siteId: siteId 
     });
   }
 

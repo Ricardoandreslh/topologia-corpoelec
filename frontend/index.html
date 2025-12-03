@@ -147,19 +147,23 @@
             <label for="device-location">Ubicación</label>
             <input name="location" id="device-location" type="text" />
           </div>
+
           <div class="form-group">
-            <label for="device-ports-count">Número de Puertos</label>
-            <input type="number" id="device-ports-count" min="0" max="48" />
+            <label for="device-ports-gigabit">Puertos Gigabit (cantidad)</label>
+            <input type="number" id="device-ports-gigabit" min="0" max="48" />
           </div>
-    
+
           <div class="form-group">
-            <label for="device-ports-type">Tipo de Puertos</label>
-            <select id="device-ports-type">
-              <option value="fast-ethernet">Fast Ethernet</option>
-              <option value="gigabit-ethernet">Gigabit Ethernet</option>
-              <option value="wifi">WiFi</option>
-            </select>
+            <label for="device-ports-fast">Puertos Fast Ethernet (cantidad)</label>
+            <input type="number" id="device-ports-fast" min="0" max="48" />
           </div>
+
+          <div class="form-group">
+            <label for="device-ports-sfp">Puertos Ópticos / SFP (cantidad)</label>
+            <input type="number" id="device-ports-sfp" min="0" max="48" />
+          </div>
+
+          
     
           <div class="form-group form-group--full">
             <label for="device-image">Imagen (opcional)</label>

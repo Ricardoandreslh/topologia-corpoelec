@@ -392,10 +392,17 @@
     try {
       const networkId = new URLSearchParams(location.search).get('network_id') || '1';
       const view = getCurrentView(); 
-      const full = await fetchFullGraph(networkId, getCurrentSiteId()); 
+      const currentSiteId = getCurrentSiteId();
+      const full = await fetchFullGraph(networkId, currentSiteId); 
       const projected = projectGraphForView(full, view);
       
-      const nodesData = await Promise.all((projected.nodes || []).map(async (n) => {
+      // Si se está exportando para una sede concreta, filtrar para incluir solo nodos con site_id == currentSiteId
+      let nodesToExport = projected.nodes || [];
+      if (currentSiteId) {
+        nodesToExport = (nodesToExport || []).filter(n => String(n.site_id) === String(currentSiteId));
+      }
+
+      const nodesData = await Promise.all((nodesToExport || []).map(async (n) => {
         let ports = n.ports || [];
         if ((!ports || ports.length === 0) && n.id) {
           try { ports = await API.getPorts(n.id); } catch (_) { ports = []; }
@@ -409,6 +416,7 @@
           IP: n.ip || '',
           MAC: n.mac || '',
           Ubicación: n.location || '',
+          Sede: n.site_path || '',
           Red_ID: n.network_id,
           Fantasma: n.ghost ? 'Sí' : 'No',
           Puertos_Total: (ports || []).length,
@@ -416,7 +424,12 @@
         };
       }));
 
-      const edgesData = (projected.edges || []).map(e => {
+      const exportedNodeIds = new Set((nodesData || []).map(r => String(r.ID)));
+
+      const edgesData = (projected.edges || []).filter(e => {
+        // solo incluir edges donde ambos extremos estén en exportedNodeIds
+        return exportedNodeIds.has(String(e.source)) && exportedNodeIds.has(String(e.target));
+      }).map(e => {
         const vlanVal = Array.isArray(e.vlan) ? e.vlan.join(',') : (e.vlan || '');
         return {
           ID: e.id,
@@ -426,7 +439,10 @@
           Estado: e.status || '',
           VLANs: vlanVal,
           Cruzado: e.cross ? 'Sí' : 'No',
-          Red_ID: e.network_id
+          Red_ID: e.network_id,
+          Puerto_Origen: e.a_port_name || '',
+          Puerto_Destino: e.b_port_name || '',
+          Etiqueta: e.label || ''
         };
       });
 
@@ -941,18 +957,22 @@
       document.getElementById('device-mac').value = device.mac_address || '';
       document.getElementById('device-location').value = device.location || '';
       try {
-        const ports = await API.getPorts(device.id);
-        if (ports && ports.length > 0) {
-          const portsCountEl = document.getElementById('device-ports-count');
-          const portsTypeEl = document.getElementById('device-ports-type');
-          if (portsCountEl) portsCountEl.value = ports.length;
-          if (portsTypeEl) portsTypeEl.value = ports[0].kind || 'gigabit-ethernet';
-        } else {
-          const pc = document.getElementById('device-ports-count');
-          if (pc) pc.value = '';
-          const pt = document.getElementById('device-ports-type');
-          if (pt) pt.value = 'gigabit-ethernet';
+        const ports = device ? await API.getPorts(device.id).catch(()=>[]) : [];
+        let giCount = 0, feCount = 0, sfpCount = 0;
+        if (ports && ports.length) {
+          ports.forEach(p => {
+            const k = (p.kind || '').toLowerCase();
+            if (k.includes('gigabit')) giCount++;
+            else if (k.includes('fast')) feCount++;
+            else if (k.includes('sfp')) sfpCount++;
+          });
         }
+        const gigEl = document.getElementById('device-ports-gigabit');
+        const fastEl = document.getElementById('device-ports-fast');
+        const sfpEl = document.getElementById('device-ports-sfp');
+        if (gigEl) gigEl.value = giCount || '';
+        if (fastEl) fastEl.value = feCount || '';
+        if (sfpEl) sfpEl.value = sfpCount || '';
       } catch (err) {
         console.error('Error cargando puertos:', err);
       }
@@ -1064,9 +1084,6 @@
     e.preventDefault();
     const id = document.getElementById('device-id')?.value;
     const imageInput = document.getElementById('device-image');
-    const portsCount = parseInt(document.getElementById('device-ports-count')?.value) || 0;
-    const portsType = document.getElementById('device-ports-type')?.value;
-    let imageId = null;
     const networkIdStr = new URLSearchParams(location.search).get('network_id') || '1';
     const networkId = parseInt(networkIdStr);
   
@@ -1075,20 +1092,40 @@
       return;
     }
   
+    const gigCount = parseInt(document.getElementById('device-ports-gigabit')?.value) || 0;
+    const fastCount = parseInt(document.getElementById('device-ports-fast')?.value) || 0;
+    const sfpCount = parseInt(document.getElementById('device-ports-sfp')?.value) || 0;
+
     let data = {};
-  
-    if (portsCount > 0) {
-      data.ports = [];
-      for (let i = 1; i <= portsCount; i++) {
-        data.ports.push({
-          name: `${portsType === 'wifi' ? 'WLAN' : (portsType === 'fast-ethernet' ? 'Fa' : 'Gi')}0/${i}`,
-          kind: portsType,
-          speed_mbps: portsType === 'fast-ethernet' ? 100 : 1000,
-          position: i
-        });
-      }
+
+    const ports = [];
+    for (let i = 1; i <= gigCount; i++) {
+      ports.push({
+        name: `Gi0/${i}`,
+        kind: 'gigabit-ethernet',
+        speed_mbps: 1000,
+        position: ports.length + 1
+      });
     }
-  
+    for (let i = 1; i <= fastCount; i++) {
+      ports.push({
+        name: `Fa0/${i}`,
+        kind: 'fast-ethernet',
+        speed_mbps: 100,
+        position: ports.length + 1
+      });
+    }
+    for (let i = 1; i <= sfpCount; i++) {
+      ports.push({
+        name: `SFP${i}`,
+        kind: 'sfp',
+        speed_mbps: null,
+        position: ports.length + 1
+      });
+    }
+    if (ports.length) data.ports = ports;
+
+    let imageId = null;
     if (imageInput.files[0]) {
       const formData = new FormData();
       formData.append('image', imageInput.files[0]);
