@@ -739,38 +739,50 @@
         if (!portsEnhanced || portsEnhanced.length === 0) {
           listWrap.innerHTML = `<div style="color:var(--muted)">No hay puertos registrados.</div>`;
         } else {
-          const ul = document.createElement('ul');
-          ul.style.listStyle = 'none';
-          ul.style.padding = '0';
-          ul.style.margin = '0';
+          const table = document.createElement('table');
+          table.style.width = '100%';
+          table.style.borderCollapse = 'collapse';
+          table.style.fontSize = '13px';
+          table.innerHTML = `
+            <thead>
+              <tr style="text-align:left; border-bottom:1px solid var(--border);">
+                <th style="padding:6px">Puerto</th>
+                <th style="padding:6px">Tipo</th>
+                <th style="padding:6px">Estado</th>
+                <th style="padding:6px">Conexión</th>
+                <th style="padding:6px">VLAN</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          `;
+          const tbody = table.querySelector('tbody');
           portsEnhanced.forEach(p => {
-            const li = document.createElement('li');
-            li.style.padding = '6px 0';
-            li.style.borderBottom = '1px dashed rgba(0,0,0,0.06)';
-            const status = p.connected ? 'Usado' : 'Libre';
+            const tr = document.createElement('tr');
+            tr.style.borderBottom = '1px dashed rgba(0,0,0,0.06)';
+            const kind = p.kind ? p.kind.replace(/-/g, ' ') : '';
+            const status = p.connected ? '<strong style="color:var(--ok)">Conectado</strong>' : 'Libre';
             let connInfo = '';
             if (p.connected) {
               if (p.peerDeviceId) {
                 const peerName = deviceNameById[p.peerDeviceId] || String(p.peerDeviceId);
-                const peerPort = p.peerPortName ? ` — ${escapeHtml(p.peerPortName)}` : '';
-                connInfo = ` • Conectado a ${escapeHtml(peerName)}${peerPort}`;
-                  if (p.vlan) {
-                    const vtxt = Array.isArray(p.vlan) ? p.vlan.join(', ') : String(p.vlan);
-                    connInfo += ` • VLAN ${escapeHtml(vtxt)}`;
-                  }
-                } else {
-                if (p.connection_to) connInfo = ` • Conectado a ${escapeHtml(String(p.connection_to))}`;
-                else if (p.remote_device) connInfo = ` • Conectado a ${escapeHtml(String(p.remote_device))}`;
-                else if (p.peer) connInfo = ` • Conectado a ${escapeHtml(String(p.peer))}`;
+                connInfo = `${escapeHtml(peerName)}${p.peerPortName ? ' • ' + escapeHtml(p.peerPortName) : ''}`;
+              } else {
+                connInfo = '—';
               }
-            }
-            li.innerHTML = `<strong>${escapeHtml(p.name)}</strong> — ${escapeHtml(p.kind || '')} — ${status}${connInfo}`;
-            ul.appendChild(li);
+            } else connInfo = '—';
+            const vlanTxt = p.vlan ? (Array.isArray(p.vlan) ? p.vlan.join(', ') : String(p.vlan)) : '—';
+            tr.innerHTML = `
+              <td style="padding:8px 6px"><strong>${escapeHtml(p.name)}</strong></td>
+              <td style="padding:8px 6px; color:var(--muted)">${escapeHtml(kind)}</td>
+              <td style="padding:8px 6px">${status}</td>
+              <td style="padding:8px 6px">${connInfo}</td>
+              <td style="padding:8px 6px">${escapeHtml(vlanTxt)}</td>
+            `;
+            tbody.appendChild(tr);
           });
-          listWrap.appendChild(ul);
+          listWrap.appendChild(table);
         }
-      }
-  
+      }  
       if (modal) { modal.hidden = false; modal.setAttribute('aria-hidden', 'false'); }
   
     } catch (err) {

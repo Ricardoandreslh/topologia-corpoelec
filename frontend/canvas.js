@@ -231,12 +231,11 @@
         }
       },
       
-      { selector: 'node[category = "wifi"]',
-        style: { 'shape': 'hexagon', 'background-color': '#3498db', 'border-color': '#2980b9' }
-      },
-      { selector: 'node[category = "switch"]',
-        style: { 'shape': 'round-rectangle', 'background-color': '#2ecc71', 'border-color': '#27ae60' }
-      },
+      { selector: 'node[category = "wifi"]', style: { 'shape': 'hexagon', 'background-color': '#3498db', 'border-color': '#2980b9' } },
+      { selector: 'node[category = "switch"]', style: { 'shape': 'round-rectangle', 'background-color': '#2ecc71', 'border-color': '#27ae60' } },
+      // Nuevo: router y other
+      { selector: 'node[type = "router"]', style: { 'shape': 'triangle', 'background-color': '#f39c12', 'border-color': '#d35400' } },
+      { selector: 'node[category = "other"]', style: { 'shape': 'star', 'background-color': '#9b59b6', 'border-color': '#8e44ad' } },
   
       {
         selector: 'edge',
@@ -284,7 +283,6 @@
           'background-image': (ele) => `/api/images/${ele.data('image_id')}`,
           'background-fit': 'cover',
           'background-clip': 'node',
-          'shape': 'rectangle',
           'width': 40, 'height': 40
         }
       },
