@@ -80,6 +80,20 @@ async function getSiteSummary(siteId) {
   };
 }
 
+async function getDescendantSiteIds(siteId) {
+  if (!siteId) return [];
+  const cteSql = `
+    WITH RECURSIVE cte AS (
+      SELECT id FROM sites WHERE id = ?
+      UNION ALL
+      SELECT s.id FROM sites s JOIN cte ON s.parent_id = cte.id
+    )
+    SELECT id FROM cte
+  `;
+  const rows = await query(cteSql, [siteId]);
+  return (rows || []).map(r => Number(r.id)).filter(Boolean);
+}
+
 async function getSitePath(siteId, path = []) {
   const site = await getSiteById(siteId);
   if (!site) return path.reverse().join(' > ');
@@ -88,4 +102,4 @@ async function getSitePath(siteId, path = []) {
   return path.reverse().join(' > ');
 }
 
-module.exports = { listSitesByNetwork, getSiteById, createSite, updateSite, deleteSite, getSitePath, getSiteSummary  };
+module.exports = { listSitesByNetwork, getSiteById, createSite, updateSite, deleteSite, getSitePath, getSiteSummary, getDescendantSiteIds  };

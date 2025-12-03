@@ -1,6 +1,7 @@
 const Devices = require('../models/devices');
 const Connections = require('../models/connections');
 const Ports = require('../models/ports'); 
+const Sites = require('../models/sites'); 
 
 function tryParseMeta(v) {
   if (v === null || v === undefined) return null;
@@ -40,7 +41,9 @@ async function getGraphByNetwork(req, res) {
     let filteredDevices = devices;
 
     if (site_id) {
-      const siteDevices = devices.filter(d => d.site_id == site_id);
+      const siteIds = await Sites.getDescendantSiteIds(Number(site_id));
+      const siteIdSet = new Set(siteIds.map(String));
+      const siteDevices = devices.filter(d => d.site_id && siteIdSet.has(String(d.site_id)));
       const siteNodeIds = new Set(siteDevices.map(d => d.id));
 
       let tempEdges = connections.map(c => ({

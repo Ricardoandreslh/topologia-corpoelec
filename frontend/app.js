@@ -1541,7 +1541,15 @@ function projectGraphForView(full, view, opts = {}) {
   const nodes = full.nodes || [];
   const edges = full.edges || [];
 
-  const primaryNodes = nodes.filter(n => nodeCategory(n.type) === desired);
+  const alwaysIncludeTypes = new Set(['router', 'other']);
+
+  const primaryNodes = nodes.filter(n => {
+    const cat = nodeCategory(n.type);
+    if (cat === desired) return true;
+    const t = String(n.type || '').toLowerCase().trim();
+    if (alwaysIncludeTypes.has(t)) return true;
+    return false;
+  });
   const primaryIds = new Set(primaryNodes.map(n => String(n.id)));
 
   let viewEdges = edges
