@@ -1095,9 +1095,9 @@
     const gigCount = parseInt(document.getElementById('device-ports-gigabit')?.value) || 0;
     const fastCount = parseInt(document.getElementById('device-ports-fast')?.value) || 0;
     const sfpCount = parseInt(document.getElementById('device-ports-sfp')?.value) || 0;
-
+  
     let data = {};
-
+  
     const ports = [];
     for (let i = 1; i <= gigCount; i++) {
       ports.push({
@@ -1115,16 +1115,16 @@
         position: ports.length + 1
       });
     }
+    // IMPORTANTE: para SFP no incluimos speed_mbps cuando no hay valor.
     for (let i = 1; i <= sfpCount; i++) {
       ports.push({
         name: `SFP${i}`,
         kind: 'sfp',
-        speed_mbps: null,
         position: ports.length + 1
       });
     }
     if (ports.length) data.ports = ports;
-
+  
     let imageId = null;
     if (imageInput.files[0]) {
       const formData = new FormData();
@@ -1263,6 +1263,20 @@
   }
 
   function getCurrentSiteId() {
+    try {
+      if (window.$ && $('#site-tree').length) {
+        const inst = $('#site-tree').jstree(true);
+        if (inst) {
+          const sel = inst.get_selected(true)[0]; 
+          if (sel && sel.data && typeof sel.data.site_id !== 'undefined') {
+
+            return sel.data.site_id === null ? null : sel.data.site_id;
+          }
+        }
+      }
+    } catch (e) {
+      // fallback: mantener comportamiento previo (selector inexistente)
+    }
     const selector = document.getElementById('site-selector');
     return selector ? (selector.value || null) : null;
   }
