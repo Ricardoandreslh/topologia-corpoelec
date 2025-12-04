@@ -41,7 +41,7 @@
   }
 
   const _portsCache = new Map();
-  const _portsInflight = new Map(); 
+  const _portsInflight = new Map();
   const PORTS_TTL_MS = 15 * 1000;
 
   async function getPorts(deviceId) {
@@ -84,16 +84,16 @@
     const json = await fetchJson(`/devices/${encodeURIComponent(id)}`);
     return json.data;
   }
-  
+
   async function getConnection(id) {
     const json = await fetchJson(`/connections/${encodeURIComponent(id)}`);
-    return json.data;  
+    return json.data;
   }
 
   async function getGraph(networkId, opts = {}) {
     const params = new URLSearchParams();
     if (opts.kind) params.set('kind', opts.kind);
-    if (opts.site_id) params.set('site_id', String(opts.site_id)); 
+    if (opts.site_id) params.set('site_id', String(opts.site_id));
     const qs = params.toString();
     const path = '/networks/' + encodeURIComponent(networkId) + '/graph' + (qs ? ('?' + qs) : '');
     return fetchJson(path);
@@ -101,25 +101,42 @@
 
   async function createDevice(data) {
     const res = await Auth.apiFetch('/devices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-    if (!res.ok) throw new Error('Error creando dispositivo');
+    if (!res.ok) {
+      const t = await res.text().catch(()=>null);
+      throw new Error(t || 'Error creando dispositivo');
+    }
     return res.json();
   }
-  
+
+  async function createDevicesBatch(devicesArray) {
+    if (!Array.isArray(devicesArray) || devicesArray.length === 0) throw new Error('devices array requerido');
+    const res = await Auth.apiFetch('/devices/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ devices: devicesArray })
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(()=>null);
+      throw new Error(t || 'Error creando dispositivos en batch');
+    }
+    return res.json();
+  }
+
   async function updateDevice(id, data) {
     const res = await Auth.apiFetch(`/devices/${encodeURIComponent(id)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
     if (!res.ok) throw new Error('Error actualizando dispositivo');
     return res.json();
   }
-  
+
   async function deleteDevice(id) {
-    const res = await Auth.apiFetch(`/devices/${encodeURIComponent(id)}`, { 
+    const res = await Auth.apiFetch(`/devices/${encodeURIComponent(id)}`, {
       method: 'DELETE',
-      headers: { 'Cache-Control': 'no-cache' } 
+      headers: { 'Cache-Control': 'no-cache' }
     });
     if (!res.ok) throw new Error('Error eliminando dispositivo');
     return res.json();
   }
-  
+
   async function createConnection(data) {
     const res = await Auth.apiFetch('/connections', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
     if (!res.ok) throw new Error('Error creando conexión');
@@ -135,16 +152,29 @@
     return data.data || [];
   }
 
+  async function upsertPositionsBatch(payload) {
+    const res = await Auth.apiFetch('/positions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(()=>null);
+      throw new Error(t || 'Error subiendo posiciones batch');
+    }
+    return res.json();
+  }
+
   async function updateConnection(id, data) {
     const res = await Auth.apiFetch(`/connections/${encodeURIComponent(id)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
     if (!res.ok) throw new Error('Error actualizando conexión');
     return res.json();
   }
-  
+
   async function deleteConnection(id) {
-    const res = await Auth.apiFetch(`/connections/${encodeURIComponent(id)}`, { 
+    const res = await Auth.apiFetch(`/connections/${encodeURIComponent(id)}`, {
       method: 'DELETE',
-      headers: { 'Cache-Control': 'no-cache' } 
+      headers: { 'Cache-Control': 'no-cache' }
     });
     if (!res.ok) throw new Error('Error eliminando conexión');
     return res.json();
@@ -198,12 +228,14 @@
     return json.data || null;
   }
 
-  global.API = { getDevices, getConnections, getGraph, 
-    createDevice, updateDevice, deleteDevice, 
-    createConnection, updateConnection, deleteConnection, 
-    getDevice, getConnection, getPorts, 
+  global.API = {
+    getDevices, getConnections, getGraph,
+    createDevice, createDevicesBatch, updateDevice, deleteDevice,
+    createConnection, updateConnection, deleteConnection,
+    getDevice, getConnection, getPorts,
     upsertPorts, getSites,
     createSite, updateSite, deleteSite,
-    getSiteSummary
+    getSiteSummary,
+    upsertPositionsBatch
   };
 })(window);

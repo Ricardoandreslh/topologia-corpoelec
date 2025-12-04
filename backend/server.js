@@ -42,6 +42,12 @@ app.use('/api/connections', connectionsRouter);
 app.use('/api/images', imagesRouter);
 app.use('/api/users', require('./routes/users.routes'));
 
+try {
+  const positionsRoutes = require('./routes/positions.routes');
+  app.use('/api', positionsRoutes);
+} catch (e) {
+}
+
 app.get('/health', async (_req, res) => {
   try {
     const pool = getPool();
@@ -78,12 +84,27 @@ app.get('*', (_req, res) => {
   res.sendFile(path.join(FRONTEND_DIR, 'index.html'));
 });
 
+const http = require('http');
+const WebSocket = require('ws');
+const Broadcaster = require('./utils/broadcaster');
+
 const PORT = process.env.PORT || 3000;
+let server;
 
 initDb()
   .then(() => {
-    app.listen(PORT, () => {
+    server = http.createServer(app);
+    const wss = new WebSocket.Server({ server, path: '/ws' });
+
+    wss.on('connection', (ws, req) => {
+      console.info('[WS] cliente conectado', req.socket.remoteAddress);
+      Broadcaster.registerClient(ws);
+      try { ws.send(JSON.stringify({ type: 'hello', msg: 'connected' })); } catch (_) {}
+    });
+
+    server.listen(PORT, () => {
       console.log(`Servidor listo en http://localhost:${PORT}`);
+      console.log(`WebSocket listo en ws://localhost:${PORT}/ws`);
     });
   })
   .catch((err) => {
@@ -91,10 +112,12 @@ initDb()
     process.exit(1);
   });
 
-// Apagado limpio
 async function shutdown() {
   console.log('\nCerrando servidor...');
   try {
+    if (server && typeof server.close === 'function') {
+      await new Promise((res) => server.close(res));
+    }
     await closeDb();
   } catch (e) {
     console.error('Error cerrando DB:', e);

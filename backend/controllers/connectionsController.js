@@ -2,6 +2,7 @@ const Connections = require('../models/connections');
 const Devices = require('../models/devices');
 const { query } = require('../db');
 const Audit = require('../models/auditLogs');
+const Broadcaster = require('../utils/broadcaster');
 
 async function list(req, res) {
   try {
@@ -97,6 +98,16 @@ async function create(req, res) {
       console.warn('Audit log failed (connection.create):', e);
     }
 
+    // Broadcast
+    try {
+      Broadcaster.broadcast({
+        type: 'graph:update',
+        network_id: payload.network_id,
+        site_ids: null,
+        affected: { connections: [result.id], devices: [payload.from_device_id, payload.to_device_id] }
+      });
+    } catch (e) { console.warn('Broadcast failed (connection.create):', e); }
+
     return res.status(201).json({ id: result.id });
   } catch (err) {
     console.error('connections.create error', err);
@@ -177,6 +188,16 @@ async function update(req, res) {
       console.warn('Audit log failed (connection.update):', e);
     }
 
+    // Broadcast
+    try {
+      Broadcaster.broadcast({
+        type: 'graph:update',
+        network_id: conn.network_id,
+        site_ids: null,
+        affected: { connections: [id], devices: [conn.from_device_id, conn.to_device_id] }
+      });
+    } catch (e) { console.warn('Broadcast failed (connection.update):', e); }
+
     return res.json({ ok: true });
   } catch (err) {
     console.error('connections.update error', err);
@@ -191,6 +212,9 @@ async function remove(req, res) {
   try {
     const id = req.params.id;
     if (!id) return res.status(400).json({ error: 'id requerido' });
+    const conn = await Connections.getConnectionById(id);
+    if (!conn) return res.status(404).json({ error: 'No encontrado' });
+
     await Connections.deleteConnection(id);
 
     try {
@@ -204,6 +228,15 @@ async function remove(req, res) {
     } catch (e) {
       console.warn('Audit log failed (connection.delete):', e);
     }
+
+    try {
+      Broadcaster.broadcast({
+        type: 'graph:update',
+        network_id: conn.network_id,
+        site_ids: null,
+        affected: { connections: [id], devices: [conn.from_device_id, conn.to_device_id], deleted: true }
+      });
+    } catch (e) { console.warn('Broadcast failed (connection.delete):', e); }
 
     return res.json({ ok: true });
   } catch (err) {

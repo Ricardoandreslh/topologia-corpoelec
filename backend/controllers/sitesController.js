@@ -1,5 +1,6 @@
 const Sites = require('../models/sites');
 const Audit = require('../models/auditLogs');
+const Broadcaster = require('../utils/broadcaster');
 
 async function list(req, res) {
   try {
@@ -45,6 +46,10 @@ async function create(req, res) {
       console.warn('Audit log failed (site.create):', e);
     }
 
+    try {
+      Broadcaster.broadcast({ type: 'graph:update', network_id: body.network_id, site_ids: [result.id], affected: { sites: [result.id] } });
+    } catch (e) { console.warn('Broadcast failed (site.create):', e); }
+
     return res.status(201).json({ id: result.id });
   } catch (err) {
     console.error('sites.create error', err);
@@ -78,6 +83,10 @@ async function update(req, res) {
       console.warn('Audit log failed (site.update):', e);
     }
 
+    try {
+      Broadcaster.broadcast({ type: 'graph:update', network_id: site.network_id, site_ids: [id], affected: { sites: [id] } });
+    } catch (e) { console.warn('Broadcast failed (site.update):', e); }
+
     return res.json({ ok: true });
   } catch (err) {
     console.error('sites.update error', err);
@@ -103,6 +112,10 @@ async function remove(req, res) {
     } catch (e) {
       console.warn('Audit log failed (site.delete):', e);
     }
+
+    try {
+      Broadcaster.broadcast({ type: 'graph:update', network_id: site.network_id, site_ids: [id], affected: { sites: [id], deleted: true } });
+    } catch (e) { console.warn('Broadcast failed (site.delete):', e); }
 
     return res.json({ ok: true });
   } catch (err) {

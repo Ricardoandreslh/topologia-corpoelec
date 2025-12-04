@@ -13,6 +13,7 @@
 
   function hasNum(n){ return Number.isFinite(n); }
 
+  // zoom/fitting functions unchanged...
   function zoomIn(containerId, factor = 1.2) {
     const cy = instances.get(containerId);
     if (cy) {
@@ -37,9 +38,9 @@
     const cy = instances.get(containerId);
     if (cy) {
       const elements = cy.elements();
-      
+
       if (elements.length === 0) return;
-      
+
       cy.animate({
         fit: {
           eles: elements,
@@ -55,7 +56,7 @@
     if (cy) {
       const container = cy.container();
       const currentBg = container.style.backgroundColor;
-      
+
       if (!currentBg || currentBg === 'white' || currentBg === 'rgb(255, 255, 255)' || currentBg === '') {
         container.style.backgroundColor = '#111522';
       } else {
@@ -67,13 +68,13 @@
   function searchNodes(containerId, query) {
     const cy = instances.get(containerId);
     if (!cy) return;
-  
+
     cy.elements().removeClass('highlighted-search');
-    
+
     if (!query.trim()) {
       return;
     }
-  
+
     const searchTerm = query.toLowerCase().trim();
     const matchingNodes = cy.nodes().filter(node => {
       const data = node.data();
@@ -83,12 +84,12 @@
         data.mac,
         data.type
       ].join(' ').toLowerCase();
-      
+
       return searchableText.includes(searchTerm);
     });
-  
+
     matchingNodes.addClass('highlighted-search');
-    
+
     if (matchingNodes.length > 0) {
       cy.animate({
         fit: {
@@ -100,6 +101,7 @@
     }
   }
 
+  // Styles & mapping (kept from original with no breaking changes)
   function getEnhancedStyles(theme) {
     const base = baseStyle(theme);
     base.push(
@@ -118,8 +120,8 @@
   }
 
   function mapElements(graph, siteId) {
-    const nodeVlanMap = {}; 
-  
+    const nodeVlanMap = {};
+
     (graph.edges || []).forEach(e => {
       let ev = e.vlan;
       let arr = null;
@@ -132,8 +134,7 @@
         arr.forEach(v => nodeVlanMap[e.target].add(v));
       }
     });
-  
-   
+
     const nodes = (graph.nodes || []).map(n => {
       let meta = {};
       if (n.metadata) {
@@ -157,9 +158,9 @@
       const portsArr = Array.isArray(n.ports) ? n.ports : [];
       const derivedSummary = { total: portsArr.length, used: portsArr.filter(p => p.connected === true).length };
       const finalSummary = n.ports_summary || (portsArr.length ? derivedSummary : { total: 0, used: 0 });
-  
+
       const vlansForNode = Array.from((nodeVlanMap[n.id] && nodeVlanMap[n.id].size) ? nodeVlanMap[n.id] : []);
-  
+
       return {
         group: 'nodes',
         data: {
@@ -183,7 +184,7 @@
         position: p && hasNum(p.x) && hasNum(p.y) ? { x: Number(p.x), y: Number(p.y) } : undefined
       };
     });
-  
+
     const edges = (graph.edges || []).map(e => {
       const arr = Array.isArray(e.vlan) ? e.vlan.map(v => String(v)) : (e.vlan !== undefined && e.vlan !== null ? [String(e.vlan)] : []);
       const vlanStr = arr.length ? arr.join(',') : null;
@@ -205,7 +206,7 @@
           source: String(e.source),
           target: String(e.target),
           label: label,
-          vlanStr: vlanStr,  
+          vlanStr: vlanStr,
           vlan: arr.length ? arr : null,
           vlanKey: vlanKey,
           link_type: linkType,
@@ -215,7 +216,7 @@
         }
       };
     });
-  
+
     return { nodes, edges };
   }
 
@@ -230,13 +231,12 @@
           'text-wrap': 'wrap', 'text-max-width': 100, 'text-valign': 'bottom', 'text-halign': 'center', 'text-margin-y': 8,
         }
       },
-      
+
       { selector: 'node[category = "wifi"]', style: { 'shape': 'hexagon', 'background-color': '#3498db', 'border-color': '#2980b9' } },
       { selector: 'node[category = "switch"]', style: { 'shape': 'round-rectangle', 'background-color': '#2ecc71', 'border-color': '#27ae60' } },
-      // Nuevo: router y other
       { selector: 'node[type = "router"]', style: { 'shape': 'triangle', 'background-color': '#f39c12', 'border-color': '#d35400' } },
       { selector: 'node[category = "other"]', style: { 'shape': 'star', 'background-color': '#9b59b6', 'border-color': '#8e44ad' } },
-  
+
       {
         selector: 'edge',
         style: {
@@ -269,7 +269,7 @@
           'text-margin-y': -6
         }
       },
-  
+
       { selector: 'edge:selected', style: { 'line-color': '#3498db', 'width': 3 } },
 
       { selector: 'node:selected', style: { 'border-color': '#FF0000', 'border-width': 3 } },
@@ -277,7 +277,7 @@
       { selector: 'node[invisible = "true"]',
         style: {'opacity': 0, 'width': 0, 'height': 0 }
       },
-  
+
       { selector: 'node[image_id]',
         style: {
           'background-image': (ele) => `/api/images/${ele.data('image_id')}`,
@@ -309,7 +309,7 @@
 
   function layoutFor(elements, viewType = 'all') {
     if (hasPreset(elements)) return { name: 'preset', fit: false, padding: 30 };
-    
+
     const nodeCount = elements.nodes ? elements.nodes.length : 0;
 
     if (viewType === 'switches') {
@@ -325,7 +325,7 @@
         avoidOverlap: true
       };
     }
-    
+
     if (viewType === 'wifi') {
       return {
         name: 'breadthfirst',
@@ -341,7 +341,7 @@
         numIter: 3000
       };
     }
-    
+
     return {
       name: 'breadthfirst',
       animate: 'end',
@@ -360,15 +360,15 @@
   function ensure(containerId) {
     const el = document.getElementById(containerId);
     if (!el) { console.warn('Canvas: no existe #' + containerId); return null; }
-    
+
     let cy = instances.get(containerId);
     if (cy && cy.destroyed()) { cy = null; instances.delete(containerId); }
-    
+
     if (!cy) {
-      const theme = document.documentElement.dataset.theme || 'light'; 
+      const theme = document.documentElement.dataset.theme || 'light';
       cy = cytoscape({
         container: el,
-        style: getEnhancedStyles(theme),  
+        style: getEnhancedStyles(theme),
         wheelSensitivity: 0.2,
         boxSelectionEnabled: true,
         selectionType: 'single',
@@ -384,22 +384,22 @@
       cy.on('grab', 'node', function(evt) {
         evt.target.trigger('grabon');
       });
-  
+
       cy.on('free', 'node', function(evt) {
         evt.target.trigger('graboff');
       });
-  
-      const onResize = () => { 
-        try { 
-          cy.resize(); 
-          cy.fit(cy.elements(), 40); 
-        } catch (_) {} 
+
+      const onResize = () => {
+        try {
+          cy.resize();
+          cy.fit(cy.elements(), 40);
+        } catch (_) {}
       };
       const debounced = debounce(onResize, 120);
       window.addEventListener('resize', debounced);
 
       try { cy.scratch('_cleanup', { debounced }); } catch (_) {}
-  
+
       cy.on('tap', 'node', ev => {
         const d = ev.target.data();
         if (window.connectMode) {
@@ -416,29 +416,29 @@
           }
           return;
         }
-      });      
+      });
 
       cy.on('cxttap', 'node', ev => {
         ev.originalEvent.preventDefault();
-        document.dispatchEvent(new CustomEvent('node:contextmenu', { 
-          detail: { 
-            node: ev.target.data(), 
-            clientX: ev.originalEvent.clientX, 
-            clientY: ev.originalEvent.clientY 
-          } 
+        document.dispatchEvent(new CustomEvent('node:contextmenu', {
+          detail: {
+            node: ev.target.data(),
+            clientX: ev.originalEvent.clientX,
+            clientY: ev.originalEvent.clientY
+          }
         }));
       });
-      
+
       cy.on('cxttap', 'edge', ev => {
         ev.originalEvent.preventDefault();
-        document.dispatchEvent(new CustomEvent('edge:contextmenu', { 
-          detail: { 
-            edge: ev.target.data(), 
-            clientX: ev.originalEvent.clientX, 
-            clientY: ev.originalEvent.clientY 
-          } 
+        document.dispatchEvent(new CustomEvent('edge:contextmenu', {
+          detail: {
+            edge: ev.target.data(),
+            clientX: ev.originalEvent.clientX,
+            clientY: ev.originalEvent.clientY
+          }
         }));
-      });    
+      });
 
       cy.on('dbltap', 'node', ev => {
         cy.animate({
@@ -451,8 +451,8 @@
         const node = evt.target;
         const id = node.id();
         const position = node.position();
-        const siteId = cy.scratch('_graphMeta')?.siteId; 
-        const posKey = siteId ? `pos_site_${siteId}` : 'pos'; 
+        const siteId = cy.scratch('_graphMeta')?.siteId;
+        const posKey = siteId ? `pos_site_${siteId}` : 'pos';
         API.updateDevice(id, { metadata: { [posKey]: { x: position.x, y: position.y } } })
           .then(() => {
             console.log(`Posición guardada para nodo ${id} en sede ${siteId || 'general'}: (${position.x}, ${position.y})`);
@@ -472,7 +472,7 @@
     const cy = instances.get(containerId);
     if (cy) {
       const newStyle = getEnhancedStyles(theme);
-      cy.style(newStyle); 
+      cy.style(newStyle);
     }
   }
 
@@ -481,7 +481,7 @@
   function wireTooltips(cy) {
     cy.on('mouseover', 'node', (ev) => {
       const node = ev.target;
-      if (node.data('ghost') === 'true' || node.data('invisible') === 'true') return; 
+      if (node.data('ghost') === 'true' || node.data('invisible') === 'true') return;
       const tooltip = portsSummary(node);
       showTooltip(tooltip, ev.originalEvent.clientX, ev.originalEvent.clientY);
     });
@@ -493,7 +493,7 @@
     const ports = d.ports || [];
     let summary = d.ports_summary || { total: ports.length, used: ports.filter(p => p.connected === true).length };
     const free = (summary.total || 0) - (summary.used || 0);
-  
+
     const connectedEdges = node.connectedEdges ? node.connectedEdges() : [];
     const vlans = new Set();
     if (connectedEdges && connectedEdges.length) {
@@ -504,14 +504,14 @@
         } catch (_) {}
       });
     }
-  
+
     let lines = [`${d.label || d.name || node.id()}`];
     if (d.site_path) lines.push(`Sede: ${d.site_path}`);
     else lines.push('Sin sede');
-  
+
     lines.push(`Puertos: ${summary.total} total • ${summary.used || 0} usados • ${free} libres`);
     if (vlans.size) lines.push(`VLANs: ${Array.from(vlans).join(', ')}`);
-  
+
     if (ports && ports.length) {
       const topPorts = ports.slice(0, 10).map(p => {
         const used = (p.connected === true) ? 'usado' : 'libre';
@@ -523,9 +523,7 @@
     }
     return lines.join('\n');
   }
-  
-  
-  
+
   function showTooltip(text, x, y) {
     let tip = document.getElementById('tooltip');
     if (!tip) {
@@ -547,120 +545,95 @@
     tip.style.top = (y + 10) + 'px';
     tip.style.display = 'block';
   }
-  
+
   function hideTooltip() {
     const tip = document.getElementById('tooltip');
     if (tip) tip.remove();
   }
 
-  function computeConvexHull(points) {
-    if (!points || points.length <= 2) return points.slice();
-    const pts = points.slice().sort((a,b) => a.x === b.x ? a.y - b.y : a.x - b.x);
-    function cross(o, a, b) { return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x); }
-    const lower = [];
-    for (let p of pts) {
-      while (lower.length >= 2 && cross(lower[lower.length-2], lower[lower.length-1], p) <= 0) lower.pop();
-      lower.push(p);
-    }
-    const upper = [];
-    for (let i = pts.length - 1; i >= 0; i--) {
-      const p = pts[i];
-      while (upper.length >= 2 && cross(upper[upper.length-2], upper[upper.length-1], p) <= 0) upper.pop();
-      upper.push(p);
-    }
-    upper.pop();
-    lower.pop();
-    return lower.concat(upper);
-  }
-  
-  function pointInPolygon(pt, poly) {
-    if (!poly || poly.length < 3) return false;
-    let inside = false;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-      const xi = poly[i].x, yi = poly[i].y;
-      const xj = poly[j].x, yj = poly[j].y;
-      const intersect = ((yi > pt.y) !== (yj > pt.y)) &&
-        (pt.x < (xj - xi) * (pt.y - yi) / (yj - yi + 0.0000001) + xi);
-      if (intersect) inside = !inside;
-    }
-    return inside;
-  }
-
-
-
-  function renderGraph(graph, opts = {}) {  
+  // ---------- Render incremental por lotes -------------------------
+  function renderGraph(graph, opts = {}) {
     const containerId = opts.containerId || 'canvas';
     const viewType = opts.viewType || 'all';
     const siteId = opts.siteId || null;
     const cy = ensure(containerId);
     if (!cy) return;
-  
+
     const elements = mapElements(graph, siteId);
     cy.stop();
+
+    // Limpiamos y agregamos en lotes
     cy.elements().remove();
-    cy.add(elements.nodes);
-    cy.add(elements.edges);
-  
-    const nodesWithoutPos = [];
-    try {
-      (elements.nodes || []).forEach(n => {
-        if (!n.data || !n.data._hasPos) {
-          nodesWithoutPos.push(String(n.data.id));
-        }
-      });
-    } catch (e) { /* ignore */ }
 
-    const layout = layoutFor(elements, viewType);
-    const layoutInstance = cy.layout(layout);
-    
-    layoutInstance.run();
+    const BATCH_SIZE = 60; // elementos por lote
+    const allElements = [...(elements.nodes || []), ...(elements.edges || [])];
 
-    const onLayoutStop = async () => {
-      try {
-        const posKey = siteId ? `pos_site_${siteId}` : 'pos';
-        for (const nid of nodesWithoutPos) {
-          try {
-            const node = cy.getElementById(nid);
-            if (!node || !node.isNode()) continue;
-            const pos = node.position();
-            API.updateDevice(nid, { metadata: { [posKey]: { x: pos.x, y: pos.y } } })
-              .catch(e => console.warn('Error guardando posición nodo', nid, e));
-            node.data('_hasPos', true);
-          } catch (err) {
-            console.warn('persist position error', err);
+    let idx = 0;
+    function addNextBatch() {
+      const chunk = allElements.slice(idx, idx + BATCH_SIZE);
+      if (chunk.length === 0) {
+        // Todos agregados -> layout
+        try {
+          const layout = layoutFor(elements, viewType);
+          const layoutInstance = cy.layout(layout);
+          layoutInstance.run();
+
+          const nodesWithoutPos = (elements.nodes || []).filter(n => !n.data || !n.data._hasPos).map(n => String(n.data.id));
+          const onLayoutStop = async () => {
+            try {
+              const posKey = siteId ? `pos_site_${siteId}` : 'pos';
+              for (const nid of nodesWithoutPos) {
+                try {
+                  const node = cy.getElementById(nid);
+                  if (!node || !node.isNode()) continue;
+                  const pos = node.position();
+                  API.updateDevice(nid, { metadata: { [posKey]: { x: pos.x, y: pos.y } } })
+                    .catch(e => console.warn('Error guardando posición nodo', nid, e));
+                  node.data('_hasPos', true);
+                } catch (err) {
+                  console.warn('persist position error', err);
+                }
+              }
+
+              setTimeout(() => {
+                try {
+                  cy.fit(cy.elements(), 60);
+                  if (cy.zoom() > 2) cy.zoom(2);
+                  if (cy.zoom() < 0.5) cy.zoom(0.5);
+                } catch (_) {}
+              }, 80);
+            } catch (err) {
+              console.warn('layoutstop handler error', err);
+            }
+          };
+
+          if (typeof layoutInstance.promiseOn === 'function') {
+            layoutInstance.promiseOn('layoutstop').then(onLayoutStop).catch(() => {});
+          } else {
+            cy.one('layoutstop', onLayoutStop);
           }
+        } catch (e) {
+          console.warn('layout error', e);
         }
-
-        setTimeout(() => {
-          try {
-            cy.fit(cy.elements(), 60);
-            if (cy.zoom() > 2) cy.zoom(2);
-            if (cy.zoom() < 0.5) cy.zoom(0.5);
-          } catch (_) {}
-        }, 80);
-
-      } catch (err) {
-        console.warn('layoutstop handler error', err);
+        return;
       }
-    };
 
-    if (typeof layoutInstance.promiseOn === 'function') {
-      layoutInstance.promiseOn('layoutstop').then(onLayoutStop).catch(() => {});
-    } else {
-      cy.one('layoutstop', onLayoutStop);
+      try {
+        cy.add(chunk);
+      } catch (e) {
+        console.warn('cy.add batch failed', e);
+      }
+      idx += BATCH_SIZE;
+      setTimeout(addNextBatch, 40);
     }
-    setTimeout(() => {
-      cy.fit(cy.elements(), 60);
-      if (cy.zoom() > 2) cy.zoom(2);
-      if (cy.zoom() < 0.5) cy.zoom(0.5);
-    }, 100);
 
-  
-    cy.scratch('_graphMeta', { 
-      network_id: graph.network_id, 
+    addNextBatch();
+
+    cy.scratch('_graphMeta', {
+      network_id: graph.network_id,
       kind: graph.kind || 'all',
       viewType: viewType,
-      siteId: siteId 
+      siteId: siteId
     });
   }
 
@@ -694,18 +667,18 @@
     return Promise.resolve();
   }
 
-  global.Canvas = { 
-    renderGraph, 
-    fit, 
-    destroy, 
-    zoomIn, 
-    zoomOut, 
-    fitView, 
-    toggleBackground, 
+  global.Canvas = {
+    renderGraph,
+    fit,
+    destroy,
+    zoomIn,
+    zoomOut,
+    fitView,
+    toggleBackground,
     searchNodes,
     updateTheme,
     nodeCategory,
     exportPNG
-    
+
   };
 })(window);

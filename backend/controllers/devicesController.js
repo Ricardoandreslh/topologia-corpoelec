@@ -1,5 +1,6 @@
 const Devices = require('../models/devices');
 const Audit = require('../models/auditLogs');
+const Broadcaster = require('../utils/broadcaster');
 
 function serializeMeta(v) {
   if (v === undefined) return undefined;
@@ -81,9 +82,64 @@ async function create(req, res) {
       console.warn('Audit log failed (device.create):', e);
     }
 
+    // Broadcast change
+    try {
+      Broadcaster.broadcast({
+        type: 'graph:update',
+        network_id: payload.network_id,
+        site_ids: payload.site_id ? [payload.site_id] : null,
+        affected: { devices: [result.id] }
+      });
+    } catch (e) { console.warn('Broadcast failed (device.create):', e); }
+
     return res.status(201).json({ id: result.id });
   } catch (err) {
     console.error('devices.create error', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+}
+
+async function batchCreate(req, res) {
+  try {
+    const body = req.body || {};
+    const devices = Array.isArray(body.devices) ? body.devices : null;
+    if (!devices || !devices.length) return res.status(400).json({ error: 'devices array requerido' });
+
+    const createdIds = [];
+    for (const dev of devices) {
+      const payload = {
+        network_id: dev.network_id,
+        name: dev.name,
+        device_type: dev.device_type,
+        ip_address: dev.ip_address || null,
+        mac_address: dev.mac_address || null,
+        location: dev.location || null,
+        image_id: dev.image_id || null,
+        site_id: dev.site_id || null,
+        metadata: dev.metadata || null
+      };
+      const result = await Devices.createDevice(payload);
+      const Ports = require('../models/ports');
+      if (dev.ports && Array.isArray(dev.ports)) {
+        for (const p of dev.ports) {
+          await Ports.createPort({ device_id: result.id, ...p });
+        }
+      }
+      createdIds.push(result.id);
+    }
+
+    try {
+      Broadcaster.broadcast({
+        type: 'graph:update',
+        network_id: devices[0].network_id,
+        site_ids: devices.map(d => d.site_id).filter(Boolean),
+        affected: { devices: createdIds }
+      });
+    } catch (e) { console.warn('Broadcast failed (devices.batchCreate):', e); }
+
+    return res.status(201).json({ ids: createdIds });
+  } catch (err) {
+    console.error('devices.batchCreate error', err);
     return res.status(500).json({ error: 'Error interno' });
   }
 }
@@ -152,6 +208,17 @@ async function update(req, res) {
       console.warn('Audit log failed (device.update):', e);
     }
 
+    // Broadcast update
+    try {
+      const updatedDevice = await Devices.getDeviceById(id);
+      Broadcaster.broadcast({
+        type: 'graph:update',
+        network_id: updatedDevice.network_id,
+        site_ids: updatedDevice.site_id ? [updatedDevice.site_id] : null,
+        affected: { devices: [id] }
+      });
+    } catch (e) { console.warn('Broadcast failed (device.update):', e); }
+
     return res.json({ ok: true });
   } catch (err) {
     console.error('devices.update error', err);
@@ -180,6 +247,16 @@ async function remove(req, res) {
     } catch (e) {
       console.warn('Audit log failed (device.delete):', e);
     }
+
+    // Broadcast delete
+    try {
+      Broadcaster.broadcast({
+        type: 'graph:update',
+        network_id: device.network_id,
+        site_ids: device.site_id ? [device.site_id] : null,
+        affected: { devices: [id], deleted: true }
+      });
+    } catch (e) { console.warn('Broadcast failed (device.delete):', e); }
 
     return res.json({ ok: true });
   } catch (err) {
@@ -216,6 +293,16 @@ async function assignSite(req, res) {
       console.warn('Audit log failed (device.assignSite):', e);
     }
 
+    try {
+      const updated = await Devices.getDeviceById(id);
+      Broadcaster.broadcast({
+        type: 'graph:update',
+        network_id: updated.network_id,
+        site_ids: updated.site_id ? [updated.site_id] : null,
+        affected: { devices: [id] }
+      });
+    } catch (e) { console.warn('Broadcast failed (device.assignSite):', e); }
+
     return res.json({ ok: true });
   } catch (err) {
     console.error('devices.assignSite error', err);
@@ -223,4 +310,4 @@ async function assignSite(req, res) {
   }
 }
 
-module.exports = { list, getById, create, update, remove, assignSite };
+module.exports = { list, getById, create, update, remove, assignSite, batchCreate };

@@ -5,22 +5,84 @@
   window.selectedPortA = null;
   let tooltipEl = null;
 
+  const GRAPH_CACHE_TTL_MS = 15 * 1000; // TTL corto (15s)
+  const GRAPH_CACHE = new Map(); // key -> { ts, data }
+  let GRAPH_WS = null;
+
+  function cacheKeyForGraph(networkId, siteId) {
+    return `${networkId}::${siteId === null ? 'null' : String(siteId)}`;
+  }
+
+  function invalidateGraphCacheForNetwork(networkId, siteIds = null) {
+    for (const k of Array.from(GRAPH_CACHE.keys())) {
+      if (!k.startsWith(String(networkId) + '::')) continue;
+      if (!siteIds || siteIds.length === 0) {
+        GRAPH_CACHE.delete(k);
+      } else {
+        const _siteId = k.split('::')[1];
+        const normalized = (_siteId === 'null') ? null : _siteId;
+        if (siteIds.map(String).includes(String(normalized))) {
+          GRAPH_CACHE.delete(k);
+        }
+      }
+    }
+  }
+
+  function initGraphSocket() {
+    try {
+      const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
+      const url = `${wsProto}://${location.host}/ws`;
+      GRAPH_WS = new WebSocket(url);
+
+      GRAPH_WS.addEventListener('open', () => {
+        console.info('[WS] conectado para notificaciones de grafo');
+      });
+
+      GRAPH_WS.addEventListener('message', (ev) => {
+        try {
+          const data = JSON.parse(ev.data);
+          if (data && data.type === 'graph:update' && data.network_id) {
+            const networkId = String(data.network_id);
+            const siteIds = Array.isArray(data.site_ids) ? data.site_ids : null;
+            invalidateGraphCacheForNetwork(networkId, siteIds);
+            document.dispatchEvent(new CustomEvent('graph:remote:update', { detail: data }));
+            console.info('[WS] invalidado cache para network', networkId, 'site_ids=', siteIds);
+          }
+        } catch (e) {
+          console.warn('[WS] mensaje inválido', e);
+        }
+      });
+
+      GRAPH_WS.addEventListener('close', () => {
+        console.warn('[WS] desconectado — reintentando en 5s');
+        setTimeout(initGraphSocket, 5000);
+      });
+
+      GRAPH_WS.addEventListener('error', (err) => {
+        console.error('[WS] error', err);
+        if (GRAPH_WS) GRAPH_WS.close();
+      });
+    } catch (e) {
+      console.warn('No se pudo iniciar WebSocket para grafo', e);
+    }
+  }
+
+  // --- Theme / utils (sin cambios mayores) --------------------------
   function applyTheme(theme, persist) {
     root.dataset.theme = theme;
     root.style.colorScheme = theme;
     if (persist) try { localStorage.setItem(THEME_KEY, theme); } catch (e) {}
     const btn = document.getElementById('theme-toggle');
     if (btn) btn.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
-    
+
     if (window.Canvas?.updateTheme) {
       window.Canvas.updateTheme('canvas-wifi', theme);
       window.Canvas.updateTheme('canvas-switches', theme);
     }
   }
-  
+
   function getStoredTheme() { try { return localStorage.getItem(THEME_KEY); } catch { return null; } }
   function getSystemTheme() { const m = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null; return (m && m.matches) ? 'dark' : 'light'; }
-
 
   function setStatus(text, isError) {
     try {
@@ -51,19 +113,35 @@
         if (typeof setStatus === 'function') setStatus('Listo para iniciar sesión');
         return;
       }
-  
+
       const ok = await Auth.requireAuthOnPage();
-      if (!ok) return; 
-  
+      if (!ok) return;
+
       populateUserBadge();
       bindTabsSafely();
       await initViewFromQuerySafely();
+
+      initGraphSocket();
+
+      document.addEventListener('graph:remote:update', async (ev) => {
+        try {
+          const d = ev.detail || {};
+          const currentNetwork = new URLSearchParams(location.search).get('network_id') || '1';
+          if (String(d.network_id) !== String(currentNetwork)) return;
+          GRAPH_CACHE.clear();
+          setTimeout(() => {
+
+            const anyModalOpen = Array.from(document.querySelectorAll('.modal')).some(m => !m.hidden);
+            if (!anyModalOpen) loadGraphFor(getCurrentView(), getCurrentSiteId());
+          }, 600);
+        } catch (_) {}
+      });
+
     } catch (err) {
       console.error('app init error', err);
       if (typeof setStatus === 'function') setStatus('Error inicializando la página', true);
     }
   });
-  
 
   function bindUIControls() {
     const zoomInBtn = document.getElementById('zoom-in');
@@ -82,19 +160,19 @@
     if (zoomInBtn) {
       zoomInBtn.addEventListener('click', handleZoomIn);
     }
-  
+
     if (zoomOutBtn) {
       zoomOutBtn.addEventListener('click', handleZoomOut);
     }
-  
+
     if (fitBtn) {
       fitBtn.addEventListener('click', handleFitView);
     }
-  
+
     if (backgroundBtn) {
       backgroundBtn.addEventListener('click', handleToggleBackground);
     }
-  
+
     if (searchInput) {
       const debouncedSearch = debounce(handleSearch, 280);
       searchInput.addEventListener('input', debouncedSearch);
@@ -391,12 +469,11 @@
   async function handleExportExcel() {
     try {
       const networkId = new URLSearchParams(location.search).get('network_id') || '1';
-      const view = getCurrentView(); 
+      const view = getCurrentView();
       const currentSiteId = getCurrentSiteId();
-      const full = await fetchFullGraph(networkId, currentSiteId); 
+      const full = await fetchFullGraph(networkId, currentSiteId);
       const projected = projectGraphForView(full, view);
-      
-      // Si se está exportando para una sede concreta, filtrar para incluir solo nodos con site_id == currentSiteId
+
       let nodesToExport = projected.nodes || [];
       if (currentSiteId) {
         nodesToExport = (nodesToExport || []).filter(n => String(n.site_id) === String(currentSiteId));
@@ -427,7 +504,6 @@
       const exportedNodeIds = new Set((nodesData || []).map(r => String(r.ID)));
 
       const edgesData = (projected.edges || []).filter(e => {
-        // solo incluir edges donde ambos extremos estén en exportedNodeIds
         return exportedNodeIds.has(String(e.source)) && exportedNodeIds.has(String(e.target));
       }).map(e => {
         const vlanVal = Array.isArray(e.vlan) ? e.vlan.join(',') : (e.vlan || '');
@@ -461,7 +537,7 @@
       if (typeof setStatus === 'function') setStatus('Error al exportar: ' + err.message, true);
     }
   }
-  
+
   async function handleExportPNG() {
     try {
       const containerId = getActiveContainerId();
@@ -472,7 +548,6 @@
       setStatus('Error exportando PNG: ' + (err?.message || 'desconocido'), true);
     }
   }
-
 
 
   function bindCRUDButtons() {
@@ -1269,6 +1344,7 @@
       t = setTimeout(() => fn.apply(this, args), wait);
     };
   }
+
   function getCurrentView() {
     const tabWifi = document.getElementById('tab-wifi');
     return tabWifi && tabWifi.checked ? 'wifi' : 'switches';
@@ -1279,15 +1355,13 @@
       if (window.$ && $('#site-tree').length) {
         const inst = $('#site-tree').jstree(true);
         if (inst) {
-          const sel = inst.get_selected(true)[0]; 
+          const sel = inst.get_selected(true)[0];
           if (sel && sel.data && typeof sel.data.site_id !== 'undefined') {
-
             return sel.data.site_id === null ? null : sel.data.site_id;
           }
         }
       }
     } catch (e) {
-      // fallback: mantener comportamiento previo (selector inexistente)
     }
     const selector = document.getElementById('site-selector');
     return selector ? (selector.value || null) : null;
@@ -1348,29 +1422,30 @@
     }
   }
   
-function getActiveContainerId() {
-  const tabWifi = document.getElementById('tab-wifi');
-  const tabSwitches = document.getElementById('tab-switches');
-  
-  if (tabWifi && tabWifi.checked) {
+  function getActiveContainerId() {
+    const tabWifi = document.getElementById('tab-wifi');
+    const tabSwitches = document.getElementById('tab-switches');
+
+    if (tabWifi && tabWifi.checked) {
+      return 'canvas-wifi';
+    }
+    if (tabSwitches && tabSwitches.checked) {
+      return 'canvas-switches';
+    }
+
+    const viewWifi = document.getElementById('view-wifi');
+    const viewSwitches = document.getElementById('view-switches');
+
+    if (viewWifi && viewWifi.style.display !== 'none') {
+      return 'canvas-wifi';
+    }
+    if (viewSwitches && viewSwitches.style.display !== 'none') {
+      return 'canvas-switches';
+    }
+
     return 'canvas-wifi';
   }
-  if (tabSwitches && tabSwitches.checked) {
-    return 'canvas-switches';
-  }
-  
-  const viewWifi = document.getElementById('view-wifi');
-  const viewSwitches = document.getElementById('view-switches');
-  
-  if (viewWifi && viewWifi.style.display !== 'none') {
-    return 'canvas-wifi';
-  }
-  if (viewSwitches && viewSwitches.style.display !== 'none') {
-    return 'canvas-switches';
-  }
-  
-  return 'canvas-wifi'; 
-}
+
   function detectPage() {
     const dp = document.body?.dataset?.page;
     if (dp) return dp.toLowerCase();
@@ -1409,7 +1484,6 @@ function getActiveContainerId() {
       }
     } catch (_) { badge.textContent = 'Usuario'; }
   }
-
 
   function openSessionsModal() {
     const existing = document.getElementById('sessions-modal');
@@ -1557,15 +1631,16 @@ function getActiveContainerId() {
     loadGraphFor(view, getCurrentSiteId());
   }
 
-const GRAPH_CACHE = new Map();
-
-async function fetchFullGraph(networkId, siteId = null) {
-  const cacheKey = `${networkId}_${siteId || 'general'}`; 
-  if (GRAPH_CACHE.has(cacheKey)) return GRAPH_CACHE.get(cacheKey);
-  const full = await API.getGraph(networkId, { site_id: siteId }); 
-  GRAPH_CACHE.set(cacheKey, full);
-  return full;
-}
+  async function fetchFullGraph(networkId, siteId = null) {
+    const key = cacheKeyForGraph(networkId, siteId);
+    const entry = GRAPH_CACHE.get(key);
+    if (entry && (Date.now() - entry.ts) < GRAPH_CACHE_TTL_MS) {
+      return entry.data;
+    }
+    const full = await API.getGraph(networkId, { site_id: siteId });
+    GRAPH_CACHE.set(key, { ts: Date.now(), data: full });
+    return full;
+  }
 
 async function computeNodePortsSummary(deviceId) {
   try {
@@ -1604,14 +1679,9 @@ function projectGraphForView(full, view, opts = {}) {
   const nodes = full.nodes || [];
   const edges = full.edges || [];
 
-  const alwaysIncludeTypes = new Set(['router', 'other']);
-
   const primaryNodes = nodes.filter(n => {
     const cat = nodeCategory(n.type);
-    if (cat === desired) return true;
-    const t = String(n.type || '').toLowerCase().trim();
-    if (alwaysIncludeTypes.has(t)) return true;
-    return false;
+    return cat === desired;
   });
   const primaryIds = new Set(primaryNodes.map(n => String(n.id)));
 

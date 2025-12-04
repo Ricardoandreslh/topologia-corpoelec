@@ -13,6 +13,7 @@ router.get('/:id/ports', requireAuth, requirePermission('devices:read'), Ports.l
 
 // Escritura (crear/actualizar/borrar) → solo admin
 router.post('/',      requireAuth, requirePermission('devices:write'), validate(createDevice), Devices.create);
+router.post('/batch', requireAuth, requirePermission('devices:write'), Devices.batchCreate);
 router.put('/:id',    requireAuth, requirePermission('devices:write'), validate(updateDevice), Devices.update);
 router.delete('/:id', requireAuth, requirePermission('devices:write'), Devices.remove);
 
