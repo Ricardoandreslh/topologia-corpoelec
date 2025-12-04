@@ -279,13 +279,19 @@
       },
 
       { selector: 'node[image_id]',
-        style: {
-          'background-image': (ele) => `/api/images/${ele.data('image_id')}`,
-          'background-fit': 'cover',
-          'background-clip': 'node',
-          'width': 40, 'height': 40
-        }
-      },
+      style: {
+        'background-image': (ele) => {
+          try {
+            const id = ele && ele.data && ele.data('image_id');
+            if (!id) return undefined;
+            return `/api/images/${id}`;
+          } catch (e) { return undefined; }
+        },
+        'background-fit': 'cover',
+        'background-clip': 'node',
+        'width': 40, 'height': 40
+      }
+    },
       { selector: 'node[ghost = "true"]',
         style: {
           'opacity': 0.35,

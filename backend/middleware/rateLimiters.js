@@ -6,26 +6,45 @@ const RATE_MAX_REQUESTS = parseInt(process.env.RATE_MAX_REQUESTS || '100', 10);
 const RATE_LOGIN_MAX = parseInt(process.env.RATE_LOGIN_MAX_REQUESTS || '10', 10);
 
 const windowMs = RATE_WINDOW_MIN * 60 * 1000;
+const ADMIN_MAX = parseInt(process.env.RATE_ADMIN_MAX || '1000000', 10);
 
-
-function keyFromReq(req) {
+function tryDecodeTokenFromHeader(req) {
   try {
     const h = req.headers && req.headers.authorization;
     if (h && typeof h === 'string') {
       const parts = h.split(' ');
       if (parts.length === 2 && /^Bearer$/i.test(parts[0])) {
         const token = parts[1];
-        const payload = jwt.decode(token);
-        if (payload) {
-          if (payload.id) return String(payload.id);
-          if (payload.jti) return String(payload.jti);
-          if (payload.username) return 'u:' + String(payload.username);
-        }
+        const payload = jwt.decode(token) || {};
+        return payload;
       }
+    }
+  } catch (e) {}
+  return null;
+}
+
+function keyFromReq(req) {
+  try {
+    const payload = tryDecodeTokenFromHeader(req);
+    if (payload) {
+      if (payload.id) return String(payload.id);
+      if (payload.jti) return String(payload.jti);
+      if (payload.username) return 'u:' + String(payload.username);
     }
   } catch (e) {
   }
   return req.ip || (req.connection && req.connection.remoteAddress) || 'unknown';
+}
+
+function isAdminReq(req) {
+  try {
+    const payload = tryDecodeTokenFromHeader(req);
+    if (!payload) return false;
+    const role = String(payload.role || '').toLowerCase();
+    return role === 'admin';
+  } catch (e) {
+    return false;
+  }
 }
 
 const apiLimiter = rateLimit({
@@ -33,6 +52,7 @@ const apiLimiter = rateLimit({
   keyGenerator: keyFromReq,
   max: (req /*, res*/) => {
     try {
+      if (isAdminReq(req)) return ADMIN_MAX; 
       const method = (req && req.method) ? req.method.toUpperCase() : 'GET';
       if (method === 'GET' || method === 'HEAD') {
         return parseInt(process.env.RATE_MAX_REQUESTS_GET || '500', 10);

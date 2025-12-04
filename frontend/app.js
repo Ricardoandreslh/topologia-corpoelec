@@ -1239,6 +1239,11 @@
     data.location = document.getElementById('device-location')?.value || null;
     data.image_id = imageId;
     data.site_id = document.getElementById('device-site-hidden')?.value ? parseInt(document.getElementById('device-site-hidden').value, 10) : null;
+
+    if (!id && (data.device_type === 'other' || String(document.getElementById('device-type')?.value).toLowerCase() === 'other')) {
+      data.metadata = data.metadata || {};
+      data.metadata.created_view = getCurrentView();
+    }    
     try {
       if (id) await API.updateDevice(id, data);
       else await API.createDevice(data);
@@ -1678,11 +1683,26 @@ function projectGraphForView(full, view, opts = {}) {
   const desired = view === 'wifi' ? 'wifi' : 'switch';
   const nodes = full.nodes || [];
   const edges = full.edges || [];
+  const siteId = (opts && ('siteId' in opts)) ? opts.siteId : null;
 
   const primaryNodes = nodes.filter(n => {
     const cat = nodeCategory(n.type);
-    return cat === desired;
+    if (cat === desired) return true;
+
+    if (cat === 'other') {
+      const md = n.metadata || (n.metadata === undefined ? null : n.metadata);
+      if (md && md.created_view) {
+        return String(md.created_view) === desired;
+      }
+      if (siteId !== null && typeof n.site_id !== 'undefined' && String(n.site_id) === String(siteId)) {
+        return true;
+      }
+      return false; 
+    }
+
+    return false;
   });
+
   const primaryIds = new Set(primaryNodes.map(n => String(n.id)));
 
   let viewEdges = edges
@@ -1708,6 +1728,7 @@ function projectGraphForView(full, view, opts = {}) {
 
   const neededIds = new Set();
   viewEdges.forEach(e => { neededIds.add(String(e.source)); neededIds.add(String(e.target)); });
+
   const ghostNodes = nodes
     .filter(n => neededIds.has(String(n.id)) && !primaryIds.has(String(n.id)))
     .map(n => ({ ...n, ghost: true }));
@@ -1722,19 +1743,19 @@ function projectGraphForView(full, view, opts = {}) {
     counts: { nodes: viewNodes.length, edges: viewEdges.length }
   };
 }
-
-
 async function loadGraphFor(view, siteId, opts = {}) {
   try {
-    if (!siteId) siteId = getCurrentSiteId();  
-    if (siteId === undefined) siteId = getCurrentSiteId(); 
+    if (!siteId) siteId = getCurrentSiteId();
+    if (siteId === undefined) siteId = getCurrentSiteId();
     const params = new URLSearchParams(location.search);
     const networkId = params.get('network_id') || '1';
     const label = view === 'wifi' ? 'WiFi' : (view === 'switches' ? 'Red Corporativa' : 'Todo');
     if (typeof setStatus === 'function') setStatus(`Cargando red ${networkId} (${label})…`);
 
-    const full = await fetchFullGraph(networkId, siteId); 
-    let projected = projectGraphForView(full, view, opts);  
+    const full = await fetchFullGraph(networkId, siteId);
+
+    let projected = projectGraphForView(full, view, Object.assign({}, opts, { siteId }));
+
     const containerId = view === 'switches' ? 'canvas-switches' : 'canvas-wifi';
     const otherId = containerId === 'canvas-wifi' ? 'canvas-switches' : 'canvas-wifi';
     if (document.getElementById(otherId)) {
@@ -1743,7 +1764,7 @@ async function loadGraphFor(view, siteId, opts = {}) {
     }
 
     if (window.Canvas?.renderGraph) {
-      window.Canvas.renderGraph(projected, { 
+      window.Canvas.renderGraph(projected, {
         containerId: containerId,
         viewType: view,
         siteId: siteId
