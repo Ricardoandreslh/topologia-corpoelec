@@ -473,12 +473,19 @@
       const currentSiteId = getCurrentSiteId();
       const full = await fetchFullGraph(networkId, currentSiteId);
       const projected = projectGraphForView(full, view);
-
+  
       let nodesToExport = projected.nodes || [];
       if (currentSiteId) {
         nodesToExport = (nodesToExport || []).filter(n => String(n.site_id) === String(currentSiteId));
       }
-
+  
+      const idToName = new Map();
+      (projected.nodes || []).forEach(n => {
+        const idStr = String(n.id);
+        const lbl = n.label || n.name || idStr;
+        idToName.set(idStr, lbl);
+      });
+  
       const nodesData = await Promise.all((nodesToExport || []).map(async (n) => {
         let ports = n.ports || [];
         if ((!ports || ports.length === 0) && n.id) {
@@ -487,7 +494,7 @@
         const portsDetail = (ports || []).map(p => `${p.name}${p.connected ? ' (U)' : ''}${p.kind ? ' '+p.kind : ''}`).join('; ');
         return {
           ID: n.id,
-          Nombre: n.label || n.id,
+          Nombre: n.label || n.name || n.id,
           Tipo: n.type,
           Categoría: n.category || nodeCategory(n.type),
           IP: n.ip || '',
@@ -500,17 +507,44 @@
           Puertos_Detalle: portsDetail
         };
       }));
-
+  
       const exportedNodeIds = new Set((nodesData || []).map(r => String(r.ID)));
-
-      const edgesData = (projected.edges || []).filter(e => {
+  
+      const includedEdges = (projected.edges || []).filter(e => {
         return exportedNodeIds.has(String(e.source)) && exportedNodeIds.has(String(e.target));
-      }).map(e => {
+      });
+  
+      const missingIds = new Set();
+      includedEdges.forEach(e => {
+        const s = String(e.source), t = String(e.target);
+        if (!idToName.has(s)) missingIds.add(s);
+        if (!idToName.has(t)) missingIds.add(t);
+      });
+  
+      if (missingIds.size > 0) {
+        const promises = Array.from(missingIds).map(async (id) => {
+          try {
+            const d = await API.getDevice(id);
+            if (d) idToName.set(String(id), d.name || String(id));
+          } catch (_) {
+            idToName.set(String(id), String(id));
+          }
+        });
+        await Promise.all(promises);
+      }
+  
+      const edgesData = includedEdges.map(e => {
         const vlanVal = Array.isArray(e.vlan) ? e.vlan.join(',') : (e.vlan || '');
+        const srcId = String(e.source);
+        const dstId = String(e.target);
+        const srcName = idToName.get(srcId) || srcId;
+        const dstName = idToName.get(dstId) || dstId;
         return {
           ID: e.id,
-          Origen: e.source,
-          Destino: e.target,
+          Origen_ID: srcId,
+          Origen_Nombre: srcName,
+          Destino_ID: dstId,
+          Destino_Nombre: dstName,
           Tipo_Enlace: e.link_type || '',
           Estado: e.status || '',
           VLANs: vlanVal,
@@ -521,16 +555,16 @@
           Etiqueta: e.label || ''
         };
       });
-
+  
       const wb = XLSX.utils.book_new();
       const wsNodes = XLSX.utils.json_to_sheet(nodesData);
       const wsEdges = XLSX.utils.json_to_sheet(edgesData);
       XLSX.utils.book_append_sheet(wb, wsNodes, 'Nodos');
       XLSX.utils.book_append_sheet(wb, wsEdges, 'Enlaces');
-
+  
       const fileName = `grafo_red_${networkId}_${view}_${new Date().toISOString().split('T')[0]}.xlsx`;
       XLSX.writeFile(wb, fileName);
-
+  
       if (typeof setStatus === 'function') setStatus('Archivo Excel exportado: ' + fileName);
     } catch (err) {
       console.error('Error exportando a Excel:', err);
