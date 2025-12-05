@@ -23,11 +23,12 @@ Cambios recientes importantes
 Cómo ejecutar localmente
 1. Clonar repo
 2. Crear base de datos MySQL (ej. `topologia`) e importar `topologia.sql` desde `./sql` o phpMyAdmin.
-3. Crear archivo `.env` con la configuración de DB y JWT (ver `.env.example`).
+3. Crear archivo `.env` con la configuración de DB y JWT.
 4. Instalar dependencias:
    ```
    npm install
    ```
+6. Crear carpeta "uploads"
 5. Arrancar servidor:
    ```
    npm run dev
